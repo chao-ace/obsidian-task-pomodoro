@@ -1,4 +1,5 @@
 import { App, Notice } from "obsidian";
+import { SoundManager } from "./sound-manager";
 import { TaskKey, TaskTimerState, TaskPomodoroSettings } from "./types";
 import { TaskParser } from "./task-parser";
 
@@ -22,10 +23,13 @@ export class TimerService {
 	private workIntervalCount: number = 0;
 	private currentDurationIndex: number = 0;
 
-	constructor(app: App, settings: TaskPomodoroSettings, taskParser: TaskParser) {
+	private soundManager: SoundManager;
+
+	constructor(app: App, settings: TaskPomodoroSettings, taskParser: TaskParser, soundManager: SoundManager) {
 		this.app = app;
 		this.settings = settings;
 		this.taskParser = taskParser;
+		this.soundManager = soundManager;
 	}
 
 	getSettings(): TaskPomodoroSettings {
@@ -163,32 +167,7 @@ export class TimerService {
 	}
 
 	playCompletionSound() {
-		if (!this.settings.soundEnabled) return;
-		try {
-			const ctx = new AudioContext();
-			const osc = ctx.createOscillator();
-			const gain = ctx.createGain();
-			osc.connect(gain);
-			gain.connect(ctx.destination);
-			gain.gain.value = this.settings.soundVolume * 0.3;
-			osc.frequency.value = 800;
-			osc.type = "sine";
-			osc.start();
-			osc.stop(ctx.currentTime + 0.3);
-			setTimeout(() => {
-				try {
-					const osc2 = ctx.createOscillator();
-					const gain2 = ctx.createGain();
-					osc2.connect(gain2);
-					gain2.connect(ctx.destination);
-					gain2.gain.value = this.settings.soundVolume * 0.3;
-					osc2.frequency.value = 1000;
-					osc2.type = "sine";
-					osc2.start();
-					osc2.stop(ctx.currentTime + 0.3);
-				} catch {}
-			}, 400);
-		} catch {}
+		this.soundManager.play();
 	}
 
 	private makeKey(filePath: string, lineNumber: number): TaskKey {

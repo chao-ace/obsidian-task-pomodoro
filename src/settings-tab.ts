@@ -166,22 +166,84 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.soundEnabled = value;
 						await this.plugin.saveSettings();
+						this.display();
 					})
 			);
 
-		new Setting(containerEl)
-			.setName("音效音量")
-			.setDesc("调整提示音的音量")
-			.addSlider((slider) =>
-				slider
-					.setLimits(0, 1, 0.1)
-					.setValue(this.plugin.settings.soundVolume)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings.soundVolume = value;
-						await this.plugin.saveSettings();
-					})
-			);
+		if (this.plugin.settings.soundEnabled) {
+			// Sound selection dropdown
+			new Setting(containerEl)
+				.setName("选择音效")
+				.setDesc("选择番茄钟完成时的提示音")
+				.addDropdown((dropdown) => {
+					// Built-in sounds
+					const sounds = this.plugin.soundManager.getBuiltInSounds();
+					for (const key of sounds) {
+						dropdown.addOption(key, key.charAt(0).toUpperCase() + key.slice(1));
+					}
+					dropdown.addOption("custom", "Custom...");
+
+					dropdown
+						.setValue(this.plugin.settings.selectedSound)
+						.onChange(async (value) => {
+							this.plugin.settings.selectedSound = value;
+							await this.plugin.saveSettings();
+							this.display();
+						});
+				})
+				.addButton((button) =>
+					button
+						.setButtonText("预览")
+						.onClick(() => {
+							this.plugin.soundManager.play();
+						})
+				);
+
+			// Custom sound URL (shown when "custom" is selected)
+			if (this.plugin.settings.selectedSound === "custom") {
+				new Setting(containerEl)
+					.setName("自定义音效")
+					.setDesc("输入音效文件的 vault 路径或外部 URL（支持 .wav, .mp3, .ogg, .m4a, .webm）")
+					.addText((text) =>
+						text
+							.setPlaceholder("例如: audio/bell.mp3 或 https://example.com/ding.mp3")
+							.setValue(this.plugin.settings.customSoundUrl)
+							.onChange(async (value) => {
+								this.plugin.settings.customSoundUrl = value;
+								await this.plugin.saveSettings();
+							})
+					)
+					.addButton((button) =>
+						button
+							.setButtonText("预览")
+							.onClick(() => {
+								this.plugin.soundManager.play();
+							})
+					);
+			}
+
+			// Volume slider
+			new Setting(containerEl)
+				.setName("音效音量")
+				.setDesc("调整提示音的音量")
+				.addSlider((slider) =>
+					slider
+						.setLimits(0, 1, 0.1)
+						.setValue(this.plugin.settings.soundVolume)
+						.setDynamicTooltip()
+						.onChange(async (value) => {
+							this.plugin.settings.soundVolume = value;
+							await this.plugin.saveSettings();
+						})
+				)
+				.addButton((button) =>
+					button
+						.setButtonText("测试音量")
+						.onClick(() => {
+							this.plugin.soundManager.play();
+						})
+				);
+		}
 
 		// === Reset ===
 		new Setting(containerEl).setName("重置").setHeading();

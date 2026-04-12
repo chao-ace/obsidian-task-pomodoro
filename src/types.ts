@@ -12,7 +12,7 @@ export interface TaskTimerState {
 	totalBreakSeconds: number;
 	pomodoroCount: number;
 	startedAt: number | null;
-	totalWorkedSeconds: number; // accumulated actual work time in seconds
+	totalWorkedSeconds: number;
 }
 
 export interface TaskPomodoroSettings {
@@ -24,6 +24,8 @@ export interface TaskPomodoroSettings {
 	showInStatusBar: boolean;
 	soundEnabled: boolean;
 	soundVolume: number;
+	selectedSound: string;
+	customSoundUrl: string;
 	notificationEnabled: boolean;
 	persistentNotification: boolean;
 	autoStartBreak: boolean;
@@ -39,6 +41,8 @@ export const DEFAULT_SETTINGS: TaskPomodoroSettings = {
 	showInStatusBar: true,
 	soundEnabled: true,
 	soundVolume: 0.5,
+	selectedSound: "chime",
+	customSoundUrl: "",
 	notificationEnabled: true,
 	persistentNotification: false,
 	autoStartBreak: true,

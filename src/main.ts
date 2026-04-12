@@ -6,6 +6,7 @@ import { TaskRenderer } from "./task-renderer";
 import { ReadingViewRenderer } from "./reading-view";
 import { createLivePreviewExtension } from "./live-preview";
 import { TaskPomodoroSettingTab } from "./settings-tab";
+import { SoundManager } from "./sound-manager";
 
 export default class TaskPomodoroPlugin extends Plugin {
 	settings!: TaskPomodoroSettings;
@@ -13,15 +14,17 @@ export default class TaskPomodoroPlugin extends Plugin {
 	private taskParser!: TaskParser;
 	private renderer!: TaskRenderer;
 	private readingViewRenderer!: ReadingViewRenderer;
+	soundManager!: SoundManager;
 	private statusBarItem!: HTMLDivElement;
 	private statusBarUpdateInterval: number | null = null;
 
 	async onload() {
 		await this.loadSettings();
 
+		this.soundManager = new SoundManager(this.app, this.settings);
 		this.taskParser = new TaskParser(this.settings);
 		this.renderer = new TaskRenderer(this.settings.pomodoroEmoji);
-		this.timerService = new TimerService(this.app, this.settings, this.taskParser);
+		this.timerService = new TimerService(this.app, this.settings, this.taskParser, this.soundManager);
 
 		// Callback: pomodoro count update during active timer
 		this.timerService.setPomodoroCompleteCallback(
@@ -114,6 +117,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 
 	onunload() {
 		this.timerService.cleanup();
+		this.soundManager.cleanup();
 		if (this.statusBarUpdateInterval) {
 			window.clearInterval(this.statusBarUpdateInterval);
 		}
@@ -129,6 +133,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 		this.taskParser.updateSettings(this.settings);
 		this.renderer.updateEmoji(this.settings.pomodoroEmoji);
 		this.timerService.updateSettings(this.settings);
+		this.soundManager.updateSettings(this.settings);
 	}
 
 	resetSession() {
