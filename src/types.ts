@@ -12,26 +12,20 @@ export interface TaskTimerState {
 	totalBreakSeconds: number;
 	pomodoroCount: number;
 	startedAt: number | null;
+	totalWorkedSeconds: number; // accumulated actual work time in seconds
 }
 
 export interface TaskPomodoroSettings {
-	// Timer durations
 	workMinutes: number;
 	shortBreakMinutes: number;
 	longBreakMinutes: number;
 	intervalsBeforeLongBreak: number;
-
-	// Display
 	pomodoroEmoji: string;
 	showInStatusBar: boolean;
-
-	// Notifications
 	soundEnabled: boolean;
 	soundVolume: number;
 	notificationEnabled: boolean;
 	persistentNotification: boolean;
-
-	// Behavior
 	autoStartBreak: boolean;
 	autoProgressEnabled: boolean;
 }

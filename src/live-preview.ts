@@ -38,17 +38,27 @@ class TaskPomodoroWidget extends WidgetType {
 
 	toDOM(): HTMLElement {
 		const workSeconds = this.timerService.getSettings().workMinutes * 60;
+
+		if (this.isComplete) {
+			// Completed task: show summary only, no button
+			const pomoCount = this.taskParser.extractPomodoroCount(this.lineText);
+			const hours = this.taskParser.extractHours(this.lineText);
+			const summary = this.renderer.createCompletedSummary(pomoCount, hours);
+			summary.setAttribute("data-task-pomo-key", this.key);
+			return summary;
+		}
+
+		// Active task: show timer button
 		const existingState = this.timerService.getState(this.key);
 		const pomodoroCount = existingState?.pomodoroCount
 			?? this.taskParser.extractPomodoroCount(this.lineText);
-		const state = this.isComplete ? "completed" : (existingState?.state ?? "idle");
+		const state = existingState?.state ?? "idle";
 		const remaining = existingState?.remainingSeconds ?? workSeconds;
 		const totalWork = existingState?.totalWorkSeconds ?? workSeconds;
 
 		const btn = this.renderer.createButton(
 			state, remaining, totalWork, pomodoroCount,
 			() => {
-				if (this.isComplete) return;
 				const es = this.timerService.getState(this.key);
 				if (es) {
 					this.timerService.toggle(this.key);
@@ -58,7 +68,6 @@ class TaskPomodoroWidget extends WidgetType {
 			}
 		);
 
-		// Store key for DOM-based updates
 		btn.setAttribute("data-task-pomo-key", this.key);
 		return btn;
 	}

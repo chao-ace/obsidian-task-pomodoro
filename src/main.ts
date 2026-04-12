@@ -23,27 +23,29 @@ export default class TaskPomodoroPlugin extends Plugin {
 		this.renderer = new TaskRenderer(this.settings.pomodoroEmoji);
 		this.timerService = new TimerService(this.app, this.settings, this.taskParser);
 
-		// Set up pomodoro persistence callback
+		// Callback: pomodoro count update during active timer
 		this.timerService.setPomodoroCompleteCallback(
 			async (filePath: string, lineNumber: number, newCount: number) => {
 				await this.persistPomodoro(filePath, lineNumber, newCount);
 			}
 		);
 
+		// Callback: task finished (user checked off a task with active timer)
+		this.timerService.setTaskFinishCallback(
+			async (filePath: string, lineNumber: number, result) => {
+				await this.persistTaskFinish(filePath, lineNumber, result);
+			}
+		);
+
 		// Reading View post-processor
 		this.readingViewRenderer = new ReadingViewRenderer(
-			this.app,
-			this.timerService,
-			this.taskParser,
-			this.renderer
+			this.app, this.timerService, this.taskParser, this.renderer
 		);
 		this.registerMarkdownPostProcessor(this.readingViewRenderer.process);
 
 		// Live Preview extension
 		const lpExtension = createLivePreviewExtension(
-			this.timerService,
-			this.taskParser,
-			this.renderer,
+			this.timerService, this.taskParser, this.renderer,
 			() => this.getActiveFilePath()
 		);
 		this.registerEditorExtension([lpExtension]);
@@ -57,33 +59,36 @@ export default class TaskPomodoroPlugin extends Plugin {
 		// Settings tab
 		this.addSettingTab(new TaskPomodoroSettingTab(this.app, this));
 
+		// Listen for file changes to detect checkbox toggles
+		this.registerEvent(
+			this.app.vault.on("modify", (file) => {
+				if (file instanceof TFile) {
+					this.handleFileChange(file.path);
+				}
+			})
+		);
+
 		// Commands
 		this.addCommand({
 			id: "toggle-pomo",
 			name: "开始/暂停光标所在任务的番茄钟",
 			callback: () => this.togglePomoUnderCursor(),
 		});
-
 		this.addCommand({
 			id: "stop-pomo",
 			name: "停止光标所在任务的番茄钟",
 			callback: () => this.stopPomoUnderCursor(),
 		});
-
 		this.addCommand({
 			id: "reset-pomo",
 			name: "重置光标所在任务的番茄钟",
 			callback: () => this.resetPomoUnderCursor(),
 		});
-
 		this.addCommand({
 			id: "reset-session",
 			name: "重置整个番茄钟会话",
-			callback: () => {
-				this.timerService.resetSession();
-			},
+			callback: () => this.timerService.resetSession(),
 		});
-
 		this.addCommand({
 			id: "toggle-sound",
 			name: "切换音效开关",
@@ -92,7 +97,6 @@ export default class TaskPomodoroPlugin extends Plugin {
 				this.saveSettings();
 			},
 		});
-
 		this.addCommand({
 			id: "toggle-statusbar",
 			name: "切换状态栏显示",
@@ -124,7 +128,6 @@ export default class TaskPomodoroPlugin extends Plugin {
 		this.timerService.updateSettings(this.settings);
 	}
 
-	/** Public method for settings tab */
 	resetSession() {
 		this.timerService.resetSession();
 	}
@@ -134,9 +137,41 @@ export default class TaskPomodoroPlugin extends Plugin {
 		return view?.file?.path ?? "";
 	}
 
-	/** Persist a 🍅 count update to the markdown file */
+	/**
+	 * Detect checkbox changes: when a line changes from - [ ] to - [x],
+	 * finish the active timer for that task.
+	 */
+	private previousLines: Map<string, string[]> = new Map();
+
+	private handleFileChange(filePath: string) {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view || view.file?.path !== filePath) return;
+
+		const content = view.editor.getValue();
+		const currentLines = content.split("\n");
+		const prevLines = this.previousLines.get(filePath);
+
+		if (prevLines) {
+			for (let i = 0; i < Math.min(currentLines.length, prevLines.length); i++) {
+				const prevLine = prevLines[i];
+				const currLine = currentLines[i];
+
+				// Detect: was unchecked, now checked
+				const wasUnchecked = prevLine.match(/^\s*- \[ \]/);
+				const isNowChecked = currLine.match(/^\s*- \[x\]/);
+
+				if (wasUnchecked && isNowChecked) {
+					// Finish the timer for this task if active
+					this.timerService.finishTaskIfActive(filePath, i);
+				}
+			}
+		}
+
+		this.previousLines.set(filePath, currentLines);
+	}
+
+	/** Persist a 🍅 count update (during active pomodoro) */
 	private async persistPomodoro(filePath: string, lineNumber: number, newCount: number) {
-		// Prefer editor API for active files (preserves unsaved edits)
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (view && view.file?.path === filePath) {
 			const line = view.editor.getLine(lineNumber);
@@ -147,13 +182,43 @@ export default class TaskPomodoroPlugin extends Plugin {
 			}
 		}
 
-		// Fallback to vault API for non-active files
 		const file = this.app.vault.getAbstractFileByPath(filePath);
 		if (file instanceof TFile) {
 			const content = await this.app.vault.read(file);
 			const lines = content.split("\n");
 			if (lineNumber < lines.length && this.taskParser.isTaskLine(lines[lineNumber])) {
 				lines[lineNumber] = this.taskParser.updatePomodoroCount(lines[lineNumber], newCount);
+				await this.app.vault.modify(file, lines.join("\n"));
+			}
+		}
+	}
+
+	/** Persist final time tracking when a task is completed */
+	private async persistTaskFinish(
+		filePath: string,
+		lineNumber: number,
+		result: { pomodoroCount: number; totalHours: number }
+	) {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (view && view.file?.path === filePath) {
+			const line = view.editor.getLine(lineNumber);
+			if (this.taskParser.isTaskLine(line)) {
+				const updated = this.taskParser.updateTimeTracking(
+					line, result.pomodoroCount, result.totalHours
+				);
+				view.editor.setLine(lineNumber, updated);
+				return;
+			}
+		}
+
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (file instanceof TFile) {
+			const content = await this.app.vault.read(file);
+			const lines = content.split("\n");
+			if (lineNumber < lines.length && this.taskParser.isTaskLine(lines[lineNumber])) {
+				lines[lineNumber] = this.taskParser.updateTimeTracking(
+					lines[lineNumber], result.pomodoroCount, result.totalHours
+				);
 				await this.app.vault.modify(file, lines.join("\n"));
 			}
 		}
@@ -168,6 +233,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 		const line = view.editor.getLine(lineNumber);
 
 		if (!this.taskParser.isTaskLine(line)) return;
+		if (this.taskParser.isTaskComplete(line)) return;
 
 		const key = `${view.file.path}:${lineNumber}`;
 		const existingState = this.timerService.getState(key);

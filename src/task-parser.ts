@@ -1,7 +1,6 @@
 import { TaskPomodoroSettings } from "./types";
 
 const TASK_LINE_REGEX = /^(\s*)- \[( |x)\] (.*)$/;
-const POMODORO_REGEX = /(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*$/u;
 
 export class TaskParser {
 	private emoji: string;
@@ -14,17 +13,13 @@ export class TaskParser {
 		this.emoji = settings.pomodoroEmoji;
 	}
 
-	/** Check if a line is a valid (non-empty) task line */
 	isTaskLine(line: string): boolean {
 		const match = line.match(TASK_LINE_REGEX);
 		if (!match) return false;
-		// Skip empty tasks (only whitespace after the checkbox)
 		const content = match[3].trim();
-		// Allow tasks with just wikilinks or text
 		return content.length > 0;
 	}
 
-	/** Check if the task is completed */
 	isTaskComplete(line: string): boolean {
 		const match = line.match(TASK_LINE_REGEX);
 		return match !== null && match[2] === "x";
@@ -32,7 +27,6 @@ export class TaskParser {
 
 	/** Extract current pomodoro count from a task line */
 	extractPomodoroCount(line: string): number {
-		// Count consecutive emoji at the end of the line
 		let count = 0;
 		let i = line.length;
 		while (i >= this.emoji.length) {
@@ -47,23 +41,62 @@ export class TaskParser {
 		return count;
 	}
 
-	/** Remove all trailing pomodoro emoji from a line */
-	private stripPomodoro(line: string): string {
-		let result = line;
+	/** Extract hours from task line, e.g. "0.8h" → 0.8 */
+	extractHours(line: string): number {
+		const match = line.match(/(\d+\.?\d*)h\s*$/);
+		return match ? parseFloat(match[1]) : 0;
+	}
+
+	/** Format hours as x.xh (e.g. 0.3h, 1.5h) */
+	formatHours(hours: number): string {
+		if (hours <= 0) return "";
+		// Show at most 1 decimal
+		const rounded = Math.round(hours * 10) / 10;
+		if (rounded === Math.floor(rounded)) {
+			return `${rounded}h`;
+		}
+		return `${rounded}h`;
+	}
+
+	/** Remove all trailing pomodoro emoji and hours from a line */
+	private stripTracking(line: string): string {
+		let result = line.trimEnd();
+		// Strip hours like "0.8h" or "1.5h"
+		result = result.replace(/\s*\d+\.?\d*h\s*$/, "").trimEnd();
+		// Strip pomodoro emoji
 		while (result.endsWith(this.emoji)) {
 			result = result.slice(0, -this.emoji.length).trimEnd();
 		}
 		return result;
 	}
 
-	/** Update the pomodoro count on a task line */
+	/** Update pomodoro count on a task line (during active timer) */
 	updatePomodoroCount(line: string, count: number): string {
-		const cleaned = this.stripPomodoro(line).trimEnd();
+		const cleaned = this.stripTracking(line).trimEnd();
 		if (count <= 0) return cleaned;
 		return cleaned + " " + this.emoji.repeat(count);
 	}
 
-	/** Get a fingerprint for drift detection (first ~50 chars of task content) */
+	/**
+	 * Write final time tracking to a completed task line.
+	 * Format: 🍅🍅🍅 1.2h (or just 🍅🍅 or just 0.3h)
+	 */
+	updateTimeTracking(line: string, pomodoroCount: number, totalHours: number): string {
+		const cleaned = this.stripTracking(line).trimEnd();
+
+		const parts: string[] = [];
+		if (pomodoroCount > 0) {
+			parts.push(this.emoji.repeat(pomodoroCount));
+		}
+		const hoursStr = this.formatHours(totalHours);
+		if (hoursStr) {
+			parts.push(hoursStr);
+		}
+
+		if (parts.length === 0) return cleaned;
+		return cleaned + " " + parts.join(" ");
+	}
+
 	getTaskFingerprint(line: string): string {
 		const match = line.match(TASK_LINE_REGEX);
 		if (!match) return "";
@@ -71,27 +104,16 @@ export class TaskParser {
 		return content.slice(0, 50);
 	}
 
-	/** Extract display text from a task line (strip wikilink syntax) */
 	getTaskDisplayText(line: string): string {
 		const match = line.match(TASK_LINE_REGEX);
 		if (!match) return "";
 		let content = match[3].trim();
-		// Strip trailing pomodoro emoji
-		content = this.stripPomodoro(content).trim();
-		// Strip completion date marker
+		content = this.stripTracking(content).trim();
 		content = content.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}\s*$/, "").trim();
-		// Extract wikilink display text: [[path|display]] → display
 		const wikilinkMatch = content.match(/\[\[.*?\|(.*?)\]\]/);
 		if (wikilinkMatch) return wikilinkMatch[1];
-		// Extract simple wikilink: [[name]] → name
 		const simpleMatch = content.match(/\[\[(.*?)\]\]/);
 		if (simpleMatch) return simpleMatch[1];
 		return content;
-	}
-
-	/** Get the indent level of a task line */
-	getIndentLevel(line: string): number {
-		const match = line.match(/^(\s*)/);
-		return match ? Math.floor(match[1].length / 2) : 0;
 	}
 }

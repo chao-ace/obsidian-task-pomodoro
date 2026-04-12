@@ -1,4 +1,4 @@
-import { TaskKey, TaskTimerState, TimerState } from "./types";
+import { TimerState } from "./types";
 
 export class TaskRenderer {
 	private emoji: string;
@@ -18,7 +18,19 @@ export class TaskRenderer {
 		return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 	}
 
-	/** Build the inline timer button for a task */
+	/** Format hours as x.xh */
+	formatHours(hours: number): string {
+		if (hours <= 0) return "";
+		const rounded = Math.round(hours * 10) / 10;
+		if (rounded === Math.floor(rounded)) {
+			return `${rounded}h`;
+		}
+		return `${rounded}h`;
+	}
+
+	/**
+	 * Build the inline timer button for an active (incomplete) task.
+	 */
 	createButton(
 		state: TimerState,
 		remainingSeconds: number,
@@ -45,14 +57,10 @@ export class TaskRenderer {
 			case "break":
 				label.textContent = `☕ ${this.formatTime(remainingSeconds)}`;
 				break;
-			case "completed":
-				label.textContent = "✅ 已完成";
-				break;
 		}
 
 		btn.appendChild(label);
 
-		// Pomodoro count indicator
 		if (pomodoroCount > 0) {
 			const count = document.createElement("span");
 			count.className = "task-pomo-count";
@@ -60,18 +68,40 @@ export class TaskRenderer {
 			btn.appendChild(count);
 		}
 
-		if (state !== "completed") {
-			btn.addEventListener("click", (e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				onClick();
-			});
-		}
+		btn.addEventListener("click", (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			onClick();
+		});
 
 		return btn;
 	}
 
-	/** Update an existing button's display (avoid DOM recreation) */
+	/**
+	 * Build the time summary for a completed task.
+	 * Shows 🍅🍅 0.8h (no button, no interaction).
+	 */
+	createCompletedSummary(pomodoroCount: number, totalHours: number): HTMLSpanElement {
+		const el = document.createElement("span");
+		el.className = "task-pomo-summary";
+
+		const parts: string[] = [];
+		if (pomodoroCount > 0) {
+			parts.push(this.emoji.repeat(pomodoroCount));
+		}
+		const hoursStr = this.formatHours(totalHours);
+		if (hoursStr) {
+			parts.push(hoursStr);
+		}
+
+		if (parts.length > 0) {
+			el.textContent = " " + parts.join(" ");
+		}
+
+		return el;
+	}
+
+	/** Update an existing button's display */
 	updateButton(
 		btn: HTMLSpanElement,
 		state: TimerState,
@@ -82,7 +112,6 @@ export class TaskRenderer {
 		const label = btn.querySelector(".task-pomo-label") as HTMLSpanElement;
 		if (!label) return;
 
-		// Update state class
 		btn.className = `task-pomo-btn ${state}`;
 
 		switch (state) {
@@ -99,11 +128,11 @@ export class TaskRenderer {
 				label.textContent = `☕ ${this.formatTime(remainingSeconds)}`;
 				break;
 			case "completed":
-				label.textContent = "✅ 已完成";
-				break;
+				btn.innerHTML = "";
+				btn.className = "task-pomo-summary";
+				return;
 		}
 
-		// Update count
 		let countEl = btn.querySelector(".task-pomo-count") as HTMLSpanElement;
 		if (pomodoroCount > 0) {
 			if (!countEl) {
