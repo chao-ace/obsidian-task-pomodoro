@@ -91,11 +91,11 @@ export function createLivePreviewExtension(
 
 			constructor(view: EditorView) {
 				this.view = view;
-				this.decorations = this.buildDecorations(this.view);
 				this.timerService = timerService;
 				this.taskParser = taskParser;
 				this.renderer = renderer;
 				this.getFilePath = getFilePath;
+				this.decorations = this.buildDecorations(this.view);
 
 				// Subscribe to timer events — update DOM directly instead of rebuilding
 				this.timerService.on("tick", this.handleTimerEvent);
