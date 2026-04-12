@@ -16,6 +16,7 @@ export interface TaskTimerState {
 }
 
 export interface TaskPomodoroSettings {
+	language: string;
 	workMinutes: number;
 	shortBreakMinutes: number;
 	longBreakMinutes: number;
@@ -33,6 +34,7 @@ export interface TaskPomodoroSettings {
 }
 
 export const DEFAULT_SETTINGS: TaskPomodoroSettings = {
+	language: "en",
 	workMinutes: 25,
 	shortBreakMinutes: 5,
 	longBreakMinutes: 15,

@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type TaskPomodoroPlugin from "./main";
+import { t, AVAILABLE_LOCALES } from "./i18n";
 
 export class TaskPomodoroSettingTab extends PluginSettingTab {
 	plugin: TaskPomodoroPlugin;
@@ -13,14 +14,31 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		new Setting(containerEl).setName("Task Pomodoro").setHeading();
+		new Setting(containerEl).setName(t("SETTINGS_HEADING")).setHeading();
+
+		// === Language ===
+		new Setting(containerEl)
+			.setName(t("SETTINGS_LANGUAGE"))
+			.setDesc("Plugin interface language / 插件界面语言")
+			.addDropdown((dropdown) => {
+				for (const loc of AVAILABLE_LOCALES) {
+					dropdown.addOption(loc.value, loc.label);
+				}
+				dropdown
+					.setValue(this.plugin.settings.language)
+					.onChange(async (value) => {
+						this.plugin.settings.language = value;
+						await this.plugin.saveSettings();
+						this.display(); // Re-render settings in new language
+					});
+			});
 
 		// === Timer Settings ===
-		new Setting(containerEl).setName("计时设置").setHeading();
+		new Setting(containerEl).setName(t("SETTINGS_TIMER")).setHeading();
 
 		new Setting(containerEl)
-			.setName("工作时长（分钟）")
-			.setDesc("每个番茄钟的工作时长")
+			.setName(t("WORK_DURATION_NAME"))
+			.setDesc(t("WORK_DURATION_DESC"))
 			.addText((text) =>
 				text
 					.setValue(this.plugin.settings.workMinutes.toString())
@@ -34,8 +52,8 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("短休息时长（分钟）")
-			.setDesc("番茄钟后的短休息时长")
+			.setName(t("SHORT_BREAK_NAME"))
+			.setDesc(t("SHORT_BREAK_DESC"))
 			.addText((text) =>
 				text
 					.setValue(this.plugin.settings.shortBreakMinutes.toString())
@@ -49,8 +67,8 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("长休息时长（分钟）")
-			.setDesc("连续完成多个番茄钟后的长休息时长")
+			.setName(t("LONG_BREAK_NAME"))
+			.setDesc(t("LONG_BREAK_DESC"))
 			.addText((text) =>
 				text
 					.setValue(this.plugin.settings.longBreakMinutes.toString())
@@ -64,8 +82,8 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("长休息间隔")
-			.setDesc("连续完成多少个番茄钟后触发长休息")
+			.setName(t("LONG_BREAK_INTERVAL_NAME"))
+			.setDesc(t("LONG_BREAK_INTERVAL_DESC"))
 			.addText((text) =>
 				text
 					.setValue(this.plugin.settings.intervalsBeforeLongBreak.toString())
@@ -79,11 +97,11 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		// === Behavior Settings ===
-		new Setting(containerEl).setName("行为设置").setHeading();
+		new Setting(containerEl).setName(t("SETTINGS_BEHAVIOR")).setHeading();
 
 		new Setting(containerEl)
-			.setName("自动开始休息")
-			.setDesc("番茄钟完成后自动开始休息倒计时")
+			.setName(t("AUTO_START_BREAK_NAME"))
+			.setDesc(t("AUTO_START_BREAK_DESC"))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.autoStartBreak)
@@ -94,8 +112,8 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("自动进行")
-			.setDesc("休息结束后自动开始下一个番茄钟")
+			.setName(t("AUTO_PROGRESS_NAME"))
+			.setDesc(t("AUTO_PROGRESS_DESC"))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.autoProgressEnabled)
@@ -110,8 +128,8 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("持续提醒")
-			.setDesc("番茄钟完成后持续提醒直到你手动操作（与自动进行互斥）")
+			.setName(t("PERSISTENT_NOTIFICATION_NAME"))
+			.setDesc(t("PERSISTENT_NOTIFICATION_DESC"))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.persistentNotification)
@@ -126,11 +144,11 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		// === Display Settings ===
-		new Setting(containerEl).setName("显示设置").setHeading();
+		new Setting(containerEl).setName(t("SETTINGS_DISPLAY")).setHeading();
 
 		new Setting(containerEl)
-			.setName("番茄钟 Emoji")
-			.setDesc("用于标记完成番茄钟的符号")
+			.setName(t("POMODORO_EMOJI_NAME"))
+			.setDesc(t("POMODORO_EMOJI_DESC"))
 			.addText((text) =>
 				text
 					.setValue(this.plugin.settings.pomodoroEmoji)
@@ -143,8 +161,8 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("在状态栏显示")
-			.setDesc("当有任务正在计时时，在状态栏显示当前计时状态")
+			.setName(t("STATUS_BAR_NAME"))
+			.setDesc(t("STATUS_BAR_DESC"))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.showInStatusBar)
@@ -155,11 +173,11 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		// === Sound Settings ===
-		new Setting(containerEl).setName("音效设置").setHeading();
+		new Setting(containerEl).setName(t("SETTINGS_SOUND")).setHeading();
 
 		new Setting(containerEl)
-			.setName("音效提醒")
-			.setDesc("番茄钟完成时播放提示音")
+			.setName(t("SOUND_ENABLED_NAME"))
+			.setDesc(t("SOUND_ENABLED_DESC"))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.soundEnabled)
@@ -171,18 +189,15 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 			);
 
 		if (this.plugin.settings.soundEnabled) {
-			// Sound selection dropdown
 			new Setting(containerEl)
-				.setName("选择音效")
-				.setDesc("选择番茄钟完成时的提示音")
+				.setName(t("SOUND_SELECT_NAME"))
+				.setDesc(t("SOUND_SELECT_DESC"))
 				.addDropdown((dropdown) => {
-					// Built-in sounds
 					const sounds = this.plugin.soundManager.getBuiltInSounds();
 					for (const key of sounds) {
 						dropdown.addOption(key, key.charAt(0).toUpperCase() + key.slice(1));
 					}
 					dropdown.addOption("custom", "Custom...");
-
 					dropdown
 						.setValue(this.plugin.settings.selectedSound)
 						.onChange(async (value) => {
@@ -193,20 +208,19 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 				})
 				.addButton((button) =>
 					button
-						.setButtonText("预览")
+						.setButtonText(t("SOUND_PREVIEW"))
 						.onClick(() => {
 							this.plugin.soundManager.play();
 						})
 				);
 
-			// Custom sound URL (shown when "custom" is selected)
 			if (this.plugin.settings.selectedSound === "custom") {
 				new Setting(containerEl)
-					.setName("自定义音效")
-					.setDesc("输入音效文件的 vault 路径或外部 URL（支持 .wav, .mp3, .ogg, .m4a, .webm）")
+					.setName(t("SOUND_CUSTOM_NAME"))
+					.setDesc(t("SOUND_CUSTOM_DESC"))
 					.addText((text) =>
 						text
-							.setPlaceholder("例如: audio/bell.mp3 或 https://example.com/ding.mp3")
+							.setPlaceholder(t("SOUND_CUSTOM_PLACEHOLDER"))
 							.setValue(this.plugin.settings.customSoundUrl)
 							.onChange(async (value) => {
 								this.plugin.settings.customSoundUrl = value;
@@ -215,17 +229,16 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 					)
 					.addButton((button) =>
 						button
-							.setButtonText("预览")
+							.setButtonText(t("SOUND_PREVIEW"))
 							.onClick(() => {
 								this.plugin.soundManager.play();
 							})
 					);
 			}
 
-			// Volume slider
 			new Setting(containerEl)
-				.setName("音效音量")
-				.setDesc("调整提示音的音量")
+				.setName(t("SOUND_VOLUME_NAME"))
+				.setDesc(t("SOUND_VOLUME_DESC"))
 				.addSlider((slider) =>
 					slider
 						.setLimits(0, 1, 0.1)
@@ -238,7 +251,7 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 				)
 				.addButton((button) =>
 					button
-						.setButtonText("测试音量")
+						.setButtonText(t("SOUND_TEST"))
 						.onClick(() => {
 							this.plugin.soundManager.play();
 						})
@@ -246,14 +259,14 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 		}
 
 		// === Reset ===
-		new Setting(containerEl).setName("重置").setHeading();
+		new Setting(containerEl).setName(t("SETTINGS_RESET")).setHeading();
 
 		new Setting(containerEl)
-			.setName("重置番茄钟会话")
-			.setDesc("重置所有计时器和工作间隔计数")
+			.setName(t("RESET_SESSION_NAME"))
+			.setDesc(t("RESET_SESSION_DESC"))
 			.addButton((button) =>
 				button
-					.setButtonText("重置")
+					.setButtonText(t("RESET_BUTTON"))
 					.setWarning()
 					.onClick(() => {
 						this.plugin.resetSession();

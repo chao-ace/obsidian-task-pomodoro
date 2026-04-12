@@ -1,5 +1,6 @@
 import { App, Notice } from "obsidian";
 import { TaskPomodoroSettings } from "./types";
+import { tf } from "./i18n";
 
 // Built-in sound definitions (Web Audio API synthesized — no network requests)
 const BUILT_IN_SOUNDS = ["chime", "ding", "pulse", "bell", "pop"] as const;
@@ -158,7 +159,7 @@ export class SoundManager {
 				this.blobUrl = URL.createObjectURL(blob);
 				url = this.blobUrl;
 			} catch {
-				new Notice(`无法加载音效文件: ${customPath}`, 3000);
+				new Notice(tf("NOTICE_SOUND_LOAD_ERROR", customPath), 3000);
 				return;
 			}
 		}

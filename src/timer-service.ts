@@ -2,6 +2,7 @@ import { App, Notice } from "obsidian";
 import { SoundManager } from "./sound-manager";
 import { TaskKey, TaskTimerState, TaskPomodoroSettings } from "./types";
 import { TaskParser } from "./task-parser";
+import { tf } from "./i18n";
 
 type TimerEventType = "tick" | "state-change" | "work-complete" | "break-complete" | "task-finished";
 type TimerCallback = (key: TaskKey, state: TaskTimerState) => void;
@@ -153,7 +154,7 @@ export class TimerService {
 		this.emit("break-complete", state.key);
 		this.emit("state-change", state.key);
 
-		new Notice("☕ 休息结束！准备下一个番茄钟", 5000);
+		new Notice(tf("NOTICE_BREAK_COMPLETE"), 5000);
 		this.playCompletionSound();
 
 		if (this.settings.autoProgressEnabled) {
@@ -162,7 +163,7 @@ export class TimerService {
 			state.startedAt = Date.now();
 			this.ensureTickLoop();
 			this.emit("state-change", state.key);
-			new Notice("🍅 自动开始下一个番茄钟！", 3000);
+			new Notice(tf("NOTICE_AUTO_START"), 3000);
 		}
 	}
 

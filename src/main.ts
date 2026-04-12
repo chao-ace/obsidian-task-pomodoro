@@ -7,6 +7,7 @@ import { ReadingViewRenderer } from "./reading-view";
 import { createLivePreviewExtension } from "./live-preview";
 import { TaskPomodoroSettingTab } from "./settings-tab";
 import { SoundManager } from "./sound-manager";
+import { setLocale, t } from "./i18n";
 
 export default class TaskPomodoroPlugin extends Plugin {
 	settings!: TaskPomodoroSettings;
@@ -21,6 +22,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		setLocale(this.settings.language as any);
 
 		this.soundManager = new SoundManager(this.app, this.settings);
 		this.taskParser = new TaskParser(this.settings);
@@ -85,27 +87,27 @@ export default class TaskPomodoroPlugin extends Plugin {
 		// Commands
 		this.addCommand({
 			id: "toggle-pomo",
-			name: "开始/暂停光标所在任务的番茄钟",
+			name: t("CMD_TOGGLE"),
 			callback: () => this.togglePomoUnderCursor(),
 		});
 		this.addCommand({
 			id: "stop-pomo",
-			name: "停止光标所在任务的番茄钟",
+			name: t("CMD_STOP"),
 			callback: () => this.stopPomoUnderCursor(),
 		});
 		this.addCommand({
 			id: "reset-pomo",
-			name: "重置光标所在任务的番茄钟",
+			name: t("CMD_RESET"),
 			callback: () => this.resetPomoUnderCursor(),
 		});
 		this.addCommand({
 			id: "reset-session",
-			name: "重置整个番茄钟会话",
+			name: t("CMD_RESET_SESSION"),
 			callback: () => this.timerService.resetSession(),
 		});
 		this.addCommand({
 			id: "toggle-sound",
-			name: "切换音效开关",
+			name: t("CMD_TOGGLE_SOUND"),
 			callback: () => {
 				this.settings.soundEnabled = !this.settings.soundEnabled;
 				this.saveSettings();
@@ -113,7 +115,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 		});
 		this.addCommand({
 			id: "toggle-statusbar",
-			name: "切换状态栏显示",
+			name: t("CMD_TOGGLE_STATUSBAR"),
 			callback: () => {
 				this.settings.showInStatusBar = !this.settings.showInStatusBar;
 				this.saveSettings();
@@ -139,6 +141,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		setLocale(this.settings.language as any);
 		this.taskParser.updateSettings(this.settings);
 		this.renderer.updateEmoji(this.settings.pomodoroEmoji);
 		this.timerService.updateSettings(this.settings);
