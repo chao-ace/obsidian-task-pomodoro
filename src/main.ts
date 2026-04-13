@@ -33,11 +33,9 @@ export default class TaskPomodoroPlugin extends Plugin {
 		this.ambientManager = new AmbientManager(this.settings);
 
 		// Callback: pomodoro count update during active timer
-		this.timerService.setPomodoroCompleteCallback(
-			async (filePath: string, lineNumber: number, newCount: number) => {
-				await this.persistPomodoro(filePath, lineNumber, newCount);
-			}
-		);
+		this.timerService.setPomodoroCompleteCallback(async (filePath, lineNumber, newCount, totalHours) => {
+			await this.persistPomodoro(filePath, lineNumber, newCount, totalHours);
+		});
 
 		// Callback: task finished (user checked off a task with active timer)
 		this.timerService.setTaskFinishCallback(
@@ -233,13 +231,13 @@ export default class TaskPomodoroPlugin extends Plugin {
 	}
 
 	/** Persist a pomodoro count update (during active timer) */
-	private async persistPomodoro(filePath: string, lineNumber: number, newCount: number) {
+	private async persistPomodoro(filePath: string, lineNumber: number, newCount: number, totalHours: number) {
 		try {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view && view.file?.path === filePath) {
 				const line = view.editor.getLine(lineNumber);
 				if (this.taskParser.isTaskLine(line)) {
-					const updated = this.taskParser.updatePomodoroCount(line, newCount);
+					const updated = this.taskParser.updatePomodoroCount(line, newCount, totalHours);
 					view.editor.setLine(lineNumber, updated);
 					return;
 				}
@@ -250,7 +248,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 				const content = await this.app.vault.read(file);
 				const lines = content.split("\n");
 				if (lineNumber >= 0 && lineNumber < lines.length && this.taskParser.isTaskLine(lines[lineNumber])) {
-					lines[lineNumber] = this.taskParser.updatePomodoroCount(lines[lineNumber], newCount);
+					lines[lineNumber] = this.taskParser.updatePomodoroCount(lines[lineNumber], newCount, totalHours);
 					await this.app.vault.modify(file, lines.join("\n"));
 				}
 			}

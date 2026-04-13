@@ -70,11 +70,9 @@ export class TaskParser {
 		return result;
 	}
 
-	/** Update pomodoro count on a task line (during active timer) */
-	updatePomodoroCount(line: string, count: number): string {
-		const cleaned = this.stripTracking(line).trimEnd();
-		if (count <= 0) return cleaned;
-		return cleaned + " " + this.emoji.repeat(count);
+	/** Update pomodoro count and hours on a task line (during active sessions) */
+	updatePomodoroCount(line: string, count: number, hours: number = 0): string {
+		return this.updateTimeTracking(line, count, hours);
 	}
 
 	/**

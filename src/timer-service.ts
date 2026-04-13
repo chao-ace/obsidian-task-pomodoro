@@ -19,7 +19,7 @@ export class TimerService {
 	private timers: Map<TaskKey, TaskTimerState> = new Map();
 	private tickInterval: number | null = null;
 	private listeners: Map<TimerEventType, Set<TimerCallback>> = new Map();
-	private onPomodoroComplete?: (filePath: string, lineNumber: number, newCount: number) => Promise<void>;
+	private onPomodoroComplete?: (filePath: string, lineNumber: number, newCount: number, totalHours: number) => Promise<void>;
 	private onTaskFinish?: (filePath: string, lineNumber: number, result: TaskFinishResult) => Promise<void>;
 	private workIntervalCount: number = 0;
 	private currentDurationIndex: number = 0;
@@ -42,7 +42,7 @@ export class TimerService {
 		this.taskParser.updateSettings(settings);
 	}
 
-	setPomodoroCompleteCallback(cb: (filePath: string, lineNumber: number, newCount: number) => Promise<void>) {
+	setPomodoroCompleteCallback(cb: (filePath: string, lineNumber: number, newCount: number, totalHours: number) => Promise<void>) {
 		this.onPomodoroComplete = cb;
 	}
 
@@ -142,7 +142,8 @@ export class TimerService {
 		this.emit("state-change", state.key);
 
 		if (this.onPomodoroComplete) {
-			await this.onPomodoroComplete(state.filePath, state.lineNumber, state.pomodoroCount);
+			const totalHours = Math.round((state.totalWorkedSeconds / 3600) * 100) / 100;
+			await this.onPomodoroComplete(state.filePath, state.lineNumber, state.pomodoroCount, totalHours);
 		}
 
 		const breakType = isLongBreak ? "长休息" : "短休息";
