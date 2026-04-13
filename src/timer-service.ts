@@ -148,7 +148,9 @@ export class TimerService {
 		const breakType = isLongBreak ? "长休息" : "短休息";
 		const breakDuration = isLongBreak ? this.settings.longBreakMinutes : this.settings.shortBreakMinutes;
 		const suffix = this.settings.autoStartBreak ? "" : " (点击开始休息)";
-		new Notice(`🍅 番茄钟完成！${breakType} ${breakDuration} 分钟${suffix}`, 5000);
+		
+		const noticeDuration = this.settings.persistentNotification ? 0 : 5000;
+		new Notice(`🍅 番茄钟完成！${breakType} ${breakDuration} 分钟${suffix}`, noticeDuration);
 		this.playCompletionSound();
 	}
 
@@ -161,7 +163,8 @@ export class TimerService {
 		this.emit("break-complete", state.key);
 		this.emit("state-change", state.key);
 
-		new Notice(tf("NOTICE_BREAK_COMPLETE"), 5000);
+		const noticeDuration = (this.settings.persistentNotification && !this.settings.autoProgressEnabled) ? 0 : 5000;
+		new Notice(tf("NOTICE_BREAK_COMPLETE"), noticeDuration);
 		this.playCompletionSound();
 
 		if (this.settings.autoProgressEnabled) {
