@@ -75,6 +75,24 @@ interface TranslationStrings {
 	NOTICE_BREAK_COMPLETE: string;
 	NOTICE_AUTO_START: string;
 	NOTICE_SOUND_LOAD_ERROR: string;
+
+	// Settings tab — ambient
+	SETTINGS_AMBIENT: string;
+	AMBIENT_ENABLED_NAME: string;
+	AMBIENT_ENABLED_DESC: string;
+	AMBIENT_SELECT_NAME: string;
+	AMBIENT_SELECT_DESC: string;
+	AMBIENT_VOLUME_NAME: string;
+	AMBIENT_VOLUME_DESC: string;
+	AMBIENT_PREVIEW: string;
+	AMBIENT_STOP: string;
+	AMBIENT_AUTOPLAY_NAME: string;
+	AMBIENT_AUTOPLAY_DESC: string;
+	AMBIENT_PLAY_ON_BREAK_NAME: string;
+	AMBIENT_PLAY_ON_BREAK_DESC: string;
+
+	// Commands — ambient
+	CMD_TOGGLE_AMBIENT: string;
 }
 
 const en: TranslationStrings = {
@@ -135,6 +153,22 @@ const en: TranslationStrings = {
 	NOTICE_BREAK_COMPLETE: "Break over! Ready for the next pomodoro",
 	NOTICE_AUTO_START: "Auto-starting next pomodoro!",
 	NOTICE_SOUND_LOAD_ERROR: "Cannot load sound file: {}",
+
+	SETTINGS_AMBIENT: "Ambient Sound",
+	AMBIENT_ENABLED_NAME: "Enable ambient sound",
+	AMBIENT_ENABLED_DESC: "Play background soundscape during work sessions",
+	AMBIENT_SELECT_NAME: "Soundscape",
+	AMBIENT_SELECT_DESC: "Choose the ambient sound to play while working",
+	AMBIENT_VOLUME_NAME: "Ambient volume",
+	AMBIENT_VOLUME_DESC: "Adjust the ambient sound volume",
+	AMBIENT_PREVIEW: "Preview",
+	AMBIENT_STOP: "Stop",
+	AMBIENT_AUTOPLAY_NAME: "Auto-play during work",
+	AMBIENT_AUTOPLAY_DESC: "Automatically start ambient sound when a work session begins",
+	AMBIENT_PLAY_ON_BREAK_NAME: "Play during breaks",
+	AMBIENT_PLAY_ON_BREAK_DESC: "Keep ambient sound playing during break sessions",
+
+	CMD_TOGGLE_AMBIENT: "Toggle ambient sound on/off",
 };
 
 const zhCN: TranslationStrings = {
@@ -195,6 +229,22 @@ const zhCN: TranslationStrings = {
 	NOTICE_BREAK_COMPLETE: "☕ 休息结束！准备下一个番茄钟",
 	NOTICE_AUTO_START: "🍅 自动开始下一个番茄钟！",
 	NOTICE_SOUND_LOAD_ERROR: "无法加载音效文件: {}",
+
+	SETTINGS_AMBIENT: "环境音效",
+	AMBIENT_ENABLED_NAME: "启用环境音效",
+	AMBIENT_ENABLED_DESC: "在工作时段播放背景白噪音",
+	AMBIENT_SELECT_NAME: "选择音景",
+	AMBIENT_SELECT_DESC: "选择工作时的背景环境音",
+	AMBIENT_VOLUME_NAME: "环境音量",
+	AMBIENT_VOLUME_DESC: "调整背景环境音的音量",
+	AMBIENT_PREVIEW: "试听",
+	AMBIENT_STOP: "停止",
+	AMBIENT_AUTOPLAY_NAME: "工作时自动播放",
+	AMBIENT_AUTOPLAY_DESC: "番茄钟开始工作时自动播放背景音",
+	AMBIENT_PLAY_ON_BREAK_NAME: "休息时持续播放",
+	AMBIENT_PLAY_ON_BREAK_DESC: "在休息时段也保持环境音播放",
+
+	CMD_TOGGLE_AMBIENT: "切换环境音效开关",
 };
 
 const TRANSLATIONS: Record<Locale, TranslationStrings> = {

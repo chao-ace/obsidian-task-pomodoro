@@ -7,6 +7,7 @@ import { ReadingViewRenderer } from "./reading-view";
 import { createLivePreviewExtension } from "./live-preview";
 import { TaskPomodoroSettingTab } from "./settings-tab";
 import { SoundManager } from "./sound-manager";
+import { AmbientManager } from "./ambient-manager";
 import { setLocale, t } from "./i18n";
 
 export default class TaskPomodoroPlugin extends Plugin {
@@ -16,6 +17,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 	private renderer!: TaskRenderer;
 	private readingViewRenderer!: ReadingViewRenderer;
 	soundManager!: SoundManager;
+	ambientManager!: AmbientManager;
 	private statusBarItem!: HTMLDivElement;
 	private statusBarUpdateInterval: number | null = null;
 	private previousLines: Map<string, string[]> = new Map();
@@ -28,6 +30,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 		this.taskParser = new TaskParser(this.settings);
 		this.renderer = new TaskRenderer(this.settings.pomodoroEmoji);
 		this.timerService = new TimerService(this.app, this.settings, this.taskParser, this.soundManager);
+		this.ambientManager = new AmbientManager(this.settings);
 
 		// Callback: pomodoro count update during active timer
 		this.timerService.setPomodoroCompleteCallback(
@@ -55,6 +58,11 @@ export default class TaskPomodoroPlugin extends Plugin {
 			() => this.getActiveFilePath()
 		);
 		this.registerEditorExtension([lpExtension]);
+
+		// Ambient auto-play: listen to timer state changes
+		this.timerService.on("state-change", (_key, state) => {
+			this.handleAmbientOnStateChange(state.state);
+		});
 
 		// Status bar
 		const sbSlot = this.addStatusBarItem();
@@ -121,6 +129,17 @@ export default class TaskPomodoroPlugin extends Plugin {
 				this.saveSettings();
 			},
 		});
+		this.addCommand({
+			id: "toggle-ambient",
+			name: t("CMD_TOGGLE_AMBIENT"),
+			callback: () => {
+				this.settings.ambientEnabled = !this.settings.ambientEnabled;
+				this.saveSettings();
+				if (!this.settings.ambientEnabled) {
+					this.ambientManager.stop();
+				}
+			},
+		});
 
 		console.log("Task Pomodoro plugin loaded");
 	}
@@ -128,6 +147,7 @@ export default class TaskPomodoroPlugin extends Plugin {
 	onunload() {
 		this.timerService.cleanup();
 		this.soundManager.cleanup();
+		this.ambientManager.cleanup();
 		if (this.statusBarUpdateInterval) {
 			window.clearInterval(this.statusBarUpdateInterval);
 		}
@@ -144,12 +164,26 @@ export default class TaskPomodoroPlugin extends Plugin {
 		setLocale(this.settings.language as any);
 		this.taskParser.updateSettings(this.settings);
 		this.renderer.updateEmoji(this.settings.pomodoroEmoji);
+		this.ambientManager.updateSettings(this.settings);
 		this.timerService.updateSettings(this.settings);
 		this.soundManager.updateSettings(this.settings);
 	}
 
 	resetSession() {
 		this.timerService.resetSession();
+	}
+
+	/** Auto-play/stop ambient sound based on timer state */
+	private handleAmbientOnStateChange(timerState: string) {
+		if (!this.settings.ambientEnabled || !this.settings.ambientAutoPlay) return;
+
+		const shouldPlay = (timerState === "working") || (timerState === "break" && this.settings.ambientPlayOnBreak);
+
+		if (shouldPlay) {
+			this.ambientManager.play(this.settings.ambientSound as any);
+		} else {
+			this.ambientManager.stop();
+		}
 	}
 
 	private getActiveFilePath(): string {

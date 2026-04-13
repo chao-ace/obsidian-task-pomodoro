@@ -258,6 +258,98 @@ export class TaskPomodoroSettingTab extends PluginSettingTab {
 				);
 		}
 
+		// === Ambient Settings ===
+		new Setting(containerEl).setName(t("SETTINGS_AMBIENT")).setHeading();
+
+		new Setting(containerEl)
+			.setName(t("AMBIENT_ENABLED_NAME"))
+			.setDesc(t("AMBIENT_ENABLED_DESC"))
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.ambientEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.ambientEnabled = value;
+						await this.plugin.saveSettings();
+						this.display();
+					})
+			);
+
+		if (this.plugin.settings.ambientEnabled) {
+			new Setting(containerEl)
+				.setName(t("AMBIENT_SELECT_NAME"))
+				.setDesc(t("AMBIENT_SELECT_DESC"))
+				.addDropdown((dropdown) => {
+					const soundscapes = this.plugin.ambientManager.getSoundscapeKeys();
+					for (const key of soundscapes) {
+						const label = this.plugin.ambientManager.getSoundscapeLabel(key);
+						dropdown.addOption(key, label);
+					}
+					dropdown
+						.setValue(this.plugin.settings.ambientSound)
+						.onChange(async (value) => {
+							this.plugin.settings.ambientSound = value;
+							await this.plugin.saveSettings();
+							// If currently previewing, switch sound immediately
+							const am = this.plugin.ambientManager;
+							if (am.getIsPlaying()) {
+								am.play(value as any);
+							}
+						});
+				})
+				.addButton((button) =>
+					button
+						.setButtonText(t("AMBIENT_PREVIEW"))
+						.onClick(() => {
+							const am = this.plugin.ambientManager;
+							if (am.getIsPlaying()) {
+								am.stop();
+								button.setButtonText(t("AMBIENT_PREVIEW"));
+							} else {
+								am.play(this.plugin.settings.ambientSound as any);
+								button.setButtonText(t("AMBIENT_STOP"));
+							}
+						})
+				);
+
+			new Setting(containerEl)
+				.setName(t("AMBIENT_VOLUME_NAME"))
+				.setDesc(t("AMBIENT_VOLUME_DESC"))
+				.addSlider((slider) =>
+					slider
+						.setLimits(0, 1, 0.05)
+						.setValue(this.plugin.settings.ambientVolume)
+						.setDynamicTooltip()
+						.onChange(async (value) => {
+							this.plugin.settings.ambientVolume = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName(t("AMBIENT_AUTOPLAY_NAME"))
+				.setDesc(t("AMBIENT_AUTOPLAY_DESC"))
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.ambientAutoPlay)
+						.onChange(async (value) => {
+							this.plugin.settings.ambientAutoPlay = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName(t("AMBIENT_PLAY_ON_BREAK_NAME"))
+				.setDesc(t("AMBIENT_PLAY_ON_BREAK_DESC"))
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.ambientPlayOnBreak)
+						.onChange(async (value) => {
+							this.plugin.settings.ambientPlayOnBreak = value;
+							await this.plugin.saveSettings();
+						})
+				);
+		}
+
 		// === Reset ===
 		new Setting(containerEl).setName(t("SETTINGS_RESET")).setHeading();
 

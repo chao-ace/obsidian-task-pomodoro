@@ -31,6 +31,11 @@ export interface TaskPomodoroSettings {
 	persistentNotification: boolean;
 	autoStartBreak: boolean;
 	autoProgressEnabled: boolean;
+	ambientEnabled: boolean;
+	ambientSound: string;
+	ambientVolume: number;
+	ambientAutoPlay: boolean;
+	ambientPlayOnBreak: boolean;
 }
 
 export const DEFAULT_SETTINGS: TaskPomodoroSettings = {
@@ -49,4 +54,9 @@ export const DEFAULT_SETTINGS: TaskPomodoroSettings = {
 	persistentNotification: false,
 	autoStartBreak: true,
 	autoProgressEnabled: false,
+	ambientEnabled: false,
+	ambientSound: "rain",
+	ambientVolume: 0.3,
+	ambientAutoPlay: true,
+	ambientPlayOnBreak: false,
 };
