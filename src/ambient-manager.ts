@@ -17,7 +17,7 @@ import { TaskPomodoroSettings } from "./types";
  */
 
 const SOUNDSCAPE_KEYS = [
-	"whitenoise", "rain", "fire", "forest", "ocean", "cafe", "wind", "brownnoise", "stream", "summer", "library", "concentration", "train", "storm", "zen",
+	"whitenoise", "rain", "fire", "forest", "ocean", "cafe", "wind", "brownnoise", "stream", "summer", "library", "alpha", "beta", "gamma", "train", "storm", "zen",
 ] as const;
 
 export type SoundscapeKey = (typeof SOUNDSCAPE_KEYS)[number];
@@ -35,7 +35,9 @@ const SOUNDSCAPE_LABELS: Record<SoundscapeKey, { en: string; zh: string }> = {
 	stream:     { en: "Stream",      zh: "溪流" },
 	summer:     { en: "Summer Night", zh: "夏夜" },
 	library:    { en: "Library",     zh: "图书馆" },
-	concentration: { en: "Focus Beats", zh: "专注音频" },
+	alpha:      { en: "Focus Beats (Alpha)", zh: "心流模式 (Alpha波)" },
+	beta:       { en: "Deep Work (Beta)",    zh: "深度专注 (Beta波)" },
+	gamma:      { en: "Peak Performance (Gamma)", zh: "极速处理 (Gamma波)" },
 	train:      { en: "Train Ride",   zh: "火车旅程" },
 	storm:      { en: "Stormy Rain", zh: "暴雨雷鸣" },
 	zen:        { en: "Zen Bowl",    zh: "禅意钵音" },
@@ -163,8 +165,14 @@ export class AmbientManager {
 			case "library":
 				this.buildLibrary(ctx, gain);
 				break;
-			case "concentration":
-				this.buildConcentration(ctx, gain);
+			case "alpha":
+				this.buildConcentration(ctx, gain, 10, 200); // 10Hz Alpha
+				break;
+			case "beta":
+				this.buildConcentration(ctx, gain, 20, 250); // 20Hz Beta
+				break;
+			case "gamma":
+				this.buildConcentration(ctx, gain, 40, 300); // 40Hz Gamma
 				break;
 			case "train":
 				this.buildTrain(ctx, gain);
@@ -279,13 +287,15 @@ export class AmbientManager {
 	}
 
 	// ========================================
+	// ========================================
 	// Soundscape generators
 	// ========================================
 
 	private buildWhiteNoise(ctx: AudioContext, output: GainNode) {
+		// Softer white noise (pink-ish filtering)
 		const filter = ctx.createBiquadFilter();
 		filter.type = "lowpass";
-		filter.frequency.value = 8000;
+		filter.frequency.value = 4000;
 		filter.connect(output);
 		this.trackNode(filter);
 
@@ -293,513 +303,506 @@ export class AmbientManager {
 	}
 
 	private buildRain(ctx: AudioContext, output: GainNode) {
-		// Main rain: bandpass 500–8000Hz
-		const bandpass = ctx.createBiquadFilter();
-		bandpass.type = "bandpass";
-		bandpass.frequency.value = 3000;
-		bandpass.Q.value = 0.5;
-		bandpass.connect(output);
-		this.trackNode(bandpass);
+		// 1. High-frequency pitter-patter (raindrops on surface)
+		const patterFilter = ctx.createBiquadFilter();
+		patterFilter.type = "bandpass";
+		patterFilter.frequency.value = 5500;
+		patterFilter.Q.value = 1.0;
+		patterFilter.connect(output);
+		this.trackNode(patterFilter);
 
-		// Remove low rumble
-		const highpass = ctx.createBiquadFilter();
-		highpass.type = "highpass";
-		highpass.frequency.value = 500;
-		highpass.connect(bandpass);
-		this.trackNode(highpass);
+		const patterGain = ctx.createGain();
+		patterGain.gain.value = 0.12;
+		patterGain.connect(patterFilter);
+		this.trackNode(patterGain);
 
-		this.createLoopingSource(ctx, highpass);
+		this.createLoopingSource(ctx, patterGain);
 
-		// Subtle drip layer: high-pitched occasional clicks
-		const dripFilter = ctx.createBiquadFilter();
-		dripFilter.type = "bandpass";
-		dripFilter.frequency.value = 6000;
-		dripFilter.Q.value = 5;
-		dripFilter.connect(output);
-		this.trackNode(dripFilter);
+		// Patter modulation (small variation)
+		const patterLfo = this.createOsc(ctx, "sine", 2.0);
+		const patterDepth = ctx.createGain();
+		patterDepth.gain.value = 0.04;
+		patterLfo.connect(patterDepth);
+		patterDepth.connect(patterGain.gain);
+		this.trackNode(patterDepth);
 
-		const dripGain = ctx.createGain();
-		dripGain.gain.value = 0.08;
-		dripGain.connect(dripFilter);
-		this.trackNode(dripGain);
+		// 2. Mid-frequency wash (distant rain)
+		const washFilter = ctx.createBiquadFilter();
+		washFilter.type = "bandpass";
+		washFilter.frequency.value = 1800;
+		washFilter.Q.value = 0.4;
+		washFilter.connect(output);
+		this.trackNode(washFilter);
 
-		this.createLoopingSource(ctx, dripGain);
+		const washGain = ctx.createGain();
+		washGain.gain.value = 0.45;
+		washGain.connect(washFilter);
+		this.trackNode(washGain);
 
-		// LFO for drip volume
-		const dripLfo = this.createOsc(ctx, "sine", 0.3);
-		const dripDepth = ctx.createGain();
-		dripDepth.gain.value = 0.06;
-		dripLfo.connect(dripDepth);
-		dripDepth.connect(dripGain.gain);
-		this.trackNode(dripDepth);
+		this.createLoopingSource(ctx, washGain, true); // use brown noise for warmer wash
+
+		// 3. Low-frequency rumble (roof resonance)
+		const rumbleFilter = ctx.createBiquadFilter();
+		rumbleFilter.type = "lowpass";
+		rumbleFilter.frequency.value = 400;
+		rumbleFilter.connect(output);
+		this.trackNode(rumbleFilter);
+
+		const rumbleGain = ctx.createGain();
+		rumbleGain.gain.value = 0.2;
+		rumbleGain.connect(rumbleFilter);
+		this.trackNode(rumbleGain);
+
+		this.createLoopingSource(ctx, rumbleGain, true);
 	}
 
 	private buildFire(ctx: AudioContext, output: GainNode) {
-		// Low rumble
-		const lowpass = ctx.createBiquadFilter();
-		lowpass.type = "lowpass";
-		lowpass.frequency.value = 500;
-		lowpass.connect(output);
-		this.trackNode(lowpass);
+		// 1. Deep rumble (the 'roar' of the flame)
+		const roarFilter = ctx.createBiquadFilter();
+		roarFilter.type = "lowpass";
+		roarFilter.frequency.value = 250;
+		roarFilter.connect(output);
+		this.trackNode(roarFilter);
 
-		this.createLoopingSource(ctx, lowpass);
+		const roarGain = ctx.createGain();
+		roarGain.gain.value = 0.35;
+		roarGain.connect(roarFilter);
+		this.trackNode(roarGain);
+		this.createLoopingSource(ctx, roarGain, true);
 
-		// Crackle effect
-		const crackleGain = ctx.createGain();
-		crackleGain.gain.value = 0.25;
-		crackleGain.connect(output);
-		this.trackNode(crackleGain);
+		// Roar modulation (slow intensity waves)
+		const roarLfo = this.createOsc(ctx, "sine", 0.1);
+		const roarDepth = ctx.createGain();
+		roarDepth.gain.value = 0.1;
+		roarLfo.connect(roarDepth);
+		roarDepth.connect(roarGain.gain);
+		this.trackNode(roarDepth);
 
-		const crackleOsc = this.createOsc(ctx, "sawtooth", 3);
-		const crackleDepth = ctx.createGain();
-		crackleDepth.gain.value = 0.15;
-		crackleOsc.connect(crackleDepth);
-		crackleDepth.connect(crackleGain.gain);
-		this.trackNode(crackleDepth);
+		// 2. Crackling (irregular pops)
+		const crackleTrigger = () => {
+			if (!this.isPlaying || this.currentSound !== "fire") return;
+			const now = ctx.currentTime;
+			
+			const osc = ctx.createOscillator();
+			osc.type = "sawtooth";
+			osc.frequency.value = 100 + Math.random() * 400;
+			
+			const bandpass = ctx.createBiquadFilter();
+			bandpass.type = "bandpass";
+			bandpass.frequency.value = 2000 + Math.random() * 3000;
+			bandpass.Q.value = 5;
+			
+			const popGain = ctx.createGain();
+			popGain.gain.setValueAtTime(0, now);
+			popGain.gain.linearRampToValueAtTime(0.1 + Math.random() * 0.2, now + 0.002);
+			popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+			
+			osc.connect(bandpass);
+			bandpass.connect(popGain);
+			popGain.connect(output);
+			
+			osc.start(now);
+			osc.stop(now + 0.1);
+			this.trackNode(bandpass);
+			this.trackNode(popGain);
+			
+			window.setTimeout(crackleTrigger, 50 + Math.random() * 800);
+		};
+		window.setTimeout(crackleTrigger, 200);
 
-		// Hiss layer
+		// 3. Hissing (escaping gas)
 		const hissFilter = ctx.createBiquadFilter();
 		hissFilter.type = "highpass";
-		hissFilter.frequency.value = 3000;
+		hissFilter.frequency.value = 4500;
 		hissFilter.connect(output);
 		this.trackNode(hissFilter);
 
 		const hissGain = ctx.createGain();
-		hissGain.gain.value = 0.08;
+		hissGain.gain.value = 0.06;
 		hissGain.connect(hissFilter);
 		this.trackNode(hissGain);
-
 		this.createLoopingSource(ctx, hissGain);
-
-		const hissLfo = this.createOsc(ctx, "sine", 0.15);
-		const hissDepth = ctx.createGain();
-		hissDepth.gain.value = 0.05;
-		hissLfo.connect(hissDepth);
-		hissDepth.connect(hissGain.gain);
-		this.trackNode(hissDepth);
 	}
 
 	private buildForest(ctx: AudioContext, output: GainNode) {
-		// Bird chirps: high-frequency filtered noise
-		const birdFilter = ctx.createBiquadFilter();
-		birdFilter.type = "bandpass";
-		birdFilter.frequency.value = 4000;
-		birdFilter.Q.value = 2;
-		birdFilter.connect(output);
-		this.trackNode(birdFilter);
+		// 1. Bird chirps (rhythmic but natural pulses)
+		const birdTrigger = () => {
+			if (!this.isPlaying || this.currentSound !== "forest") return;
+			const now = ctx.currentTime;
+			
+			const count = 1 + Math.floor(Math.random() * 3);
+			for (let i = 0; i < count; i++) {
+				const start = now + i * 0.15;
+				const osc = ctx.createOscillator();
+				osc.type = "sine";
+				osc.frequency.setValueAtTime(3000 + Math.random() * 2000, start);
+				osc.frequency.exponentialRampToValueAtTime(1000 + Math.random() * 1000, start + 0.1);
+				
+				const g = ctx.createGain();
+				g.gain.setValueAtTime(0, start);
+				g.gain.linearRampToValueAtTime(0.05, start + 0.01);
+				g.gain.exponentialRampToValueAtTime(0.001, start + 0.1);
+				
+				osc.connect(g);
+				g.connect(output);
+				osc.start(start);
+				osc.stop(start + 0.15);
+				this.trackNode(g);
+			}
 
-		const birdGain = ctx.createGain();
-		birdGain.gain.value = 0.12;
-		birdGain.connect(birdFilter);
-		this.trackNode(birdGain);
+			window.setTimeout(birdTrigger, 3000 + Math.random() * 8000);
+		};
+		window.setTimeout(birdTrigger, 2000);
 
-		this.createLoopingSource(ctx, birdGain);
-
-		// Bird chirp modulation: fast amplitude wobble
-		const birdLfo = this.createOsc(ctx, "sine", 6);
-		const birdDepth = ctx.createGain();
-		birdDepth.gain.value = 0.1;
-		birdLfo.connect(birdDepth);
-		birdDepth.connect(birdGain.gain);
-		this.trackNode(birdDepth);
-
-		// Wind: low rumble
+		// 2. Distant wind/leaves
 		const windFilter = ctx.createBiquadFilter();
 		windFilter.type = "lowpass";
-		windFilter.frequency.value = 300;
+		windFilter.frequency.value = 400;
 		windFilter.connect(output);
 		this.trackNode(windFilter);
 
 		const windGain = ctx.createGain();
-		windGain.gain.value = 0.18;
+		windGain.gain.value = 0.2;
 		windGain.connect(windFilter);
 		this.trackNode(windGain);
-
-		this.createLoopingSource(ctx, windGain);
-
-		// Slow wind modulation
-		const windLfo = this.createOsc(ctx, "sine", 0.08);
-		const windDepth = ctx.createGain();
-		windDepth.gain.value = 0.1;
-		windLfo.connect(windDepth);
-		windDepth.connect(windGain.gain);
-		this.trackNode(windDepth);
+		this.createLoopingSource(ctx, windGain, true);
 	}
 
 	private buildOcean(ctx: AudioContext, output: GainNode) {
-		// Wide-band filtered noise
-		const filter = ctx.createBiquadFilter();
-		filter.type = "lowpass";
-		filter.frequency.value = 2000;
-		filter.connect(output);
-		this.trackNode(filter);
+		// 1. Distant roar (foundation)
+		const roarFilter = ctx.createBiquadFilter();
+		roarFilter.type = "lowpass";
+		roarFilter.frequency.value = 600;
+		roarFilter.connect(output);
+		this.trackNode(roarFilter);
 
-		// Amplitude modulated by slow wave (~0.1Hz = one wave every 10s)
+		const roarGain = ctx.createGain();
+		roarGain.gain.value = 0.4;
+		roarGain.connect(roarFilter);
+		this.trackNode(roarGain);
+		this.createLoopingSource(ctx, roarGain, true);
+
+		// 2. The main wave (wash in/out)
+		const waveFilter = ctx.createBiquadFilter();
+		waveFilter.type = "bandpass";
+		waveFilter.frequency.value = 1000;
+		waveFilter.Q.value = 0.5;
+		waveFilter.connect(output);
+		this.trackNode(waveFilter);
+
 		const waveGain = ctx.createGain();
-		waveGain.gain.value = 0.5;
-		waveGain.connect(filter);
+		waveGain.gain.value = 0;
+		waveGain.connect(waveFilter);
 		this.trackNode(waveGain);
+		this.createLoopingSource(ctx, waveGain, true);
 
-		this.createLoopingSource(ctx, waveGain);
-
-		const waveLfo = this.createOsc(ctx, "sine", 0.1);
-		const waveDepth = ctx.createGain();
-		waveDepth.gain.value = 0.4;
-		waveLfo.connect(waveDepth);
-		waveDepth.connect(waveGain.gain);
-		this.trackNode(waveDepth);
-
-		// Foam/hiss: high frequency layer
+		// 3. Foam / Hisss (high frequency peak of the wave)
+		const foamGain = ctx.createGain();
+		foamGain.gain.value = 0;
 		const foamFilter = ctx.createBiquadFilter();
 		foamFilter.type = "highpass";
 		foamFilter.frequency.value = 4000;
 		foamFilter.connect(output);
-		this.trackNode(foamFilter);
-
-		const foamGain = ctx.createGain();
-		foamGain.gain.value = 0.06;
 		foamGain.connect(foamFilter);
 		this.trackNode(foamGain);
-
+		this.trackNode(foamFilter);
 		this.createLoopingSource(ctx, foamGain);
 
-		// Foam modulated at double wave frequency
-		const foamLfo = this.createOsc(ctx, "sine", 0.2);
-		const foamDepth = ctx.createGain();
-		foamDepth.gain.value = 0.04;
-		foamLfo.connect(foamDepth);
-		foamDepth.connect(foamGain.gain);
-		this.trackNode(foamDepth);
+		// Wave cycle controller
+		const triggerWave = () => {
+			if (!this.isPlaying || this.currentSound !== "ocean") return;
+			const now = ctx.currentTime;
+			const duration = 10 + Math.random() * 5; // 10-15 seconds per wave
+			
+			waveGain.gain.cancelScheduledValues(now);
+			waveGain.gain.setValueAtTime(0, now);
+			waveGain.gain.linearRampToValueAtTime(0.6, now + duration * 0.3);
+			waveGain.gain.linearRampToValueAtTime(0, now + duration);
+
+			foamGain.gain.cancelScheduledValues(now);
+			foamGain.gain.setValueAtTime(0, now);
+			foamGain.gain.linearRampToValueAtTime(0.08, now + duration * 0.35);
+			foamGain.gain.linearRampToValueAtTime(0, now + duration * 0.8);
+
+			window.setTimeout(triggerWave, duration * 1000 - 500);
+		};
+		window.setTimeout(triggerWave, 100);
 	}
 
 	private buildCafe(ctx: AudioContext, output: GainNode) {
-		// Mid-range murmur: 300–3000Hz
-		const bandpass = ctx.createBiquadFilter();
-		bandpass.type = "bandpass";
-		bandpass.frequency.value = 1500;
-		bandpass.Q.value = 0.3;
-		bandpass.connect(output);
-		this.trackNode(bandpass);
+		// 1. Mid-range murmur (crowd atmosphere)
+		const murmurFilter = ctx.createBiquadFilter();
+		murmurFilter.type = "bandpass";
+		murmurFilter.frequency.value = 1200;
+		murmurFilter.Q.value = 0.4;
+		murmurFilter.connect(output);
+		this.trackNode(murmurFilter);
 
 		const murmurGain = ctx.createGain();
-		murmurGain.gain.value = 0.55;
-		murmurGain.connect(bandpass);
+		murmurGain.gain.value = 0.5;
+		murmurGain.connect(murmurFilter);
 		this.trackNode(murmurGain);
+		this.createLoopingSource(ctx, murmurGain, true);
 
-		this.createLoopingSource(ctx, murmurGain);
-
-		// Amplitude variation (people talking in waves)
-		const murmurLfo = this.createOsc(ctx, "sine", 0.15);
-		const murmurDepth = ctx.createGain();
-		murmurDepth.gain.value = 0.15;
-		murmurLfo.connect(murmurDepth);
-		murmurDepth.connect(murmurGain.gain);
-		this.trackNode(murmurDepth);
-
-		// Clink layer: subtle high-frequency
-		const clinkFilter = ctx.createBiquadFilter();
-		clinkFilter.type = "bandpass";
-		clinkFilter.frequency.value = 5000;
-		clinkFilter.Q.value = 3;
-		clinkFilter.connect(output);
-		this.trackNode(clinkFilter);
-
-		const clinkGain = ctx.createGain();
-		clinkGain.gain.value = 0.03;
-		clinkGain.connect(clinkFilter);
-		this.trackNode(clinkGain);
-
-		this.createLoopingSource(ctx, clinkGain);
-
-		const clinkLfo = this.createOsc(ctx, "sine", 0.05);
-		const clinkDepth = ctx.createGain();
-		clinkDepth.gain.value = 0.025;
-		clinkLfo.connect(clinkDepth);
-		clinkDepth.connect(clinkGain.gain);
-		this.trackNode(clinkDepth);
+		// Distant clinks (cups/spoons)
+		const clinkTrigger = () => {
+			if (!this.isPlaying || this.currentSound !== "cafe") return;
+			const now = ctx.currentTime;
+			
+			const filter = ctx.createBiquadFilter();
+			filter.type = "bandpass";
+			filter.frequency.value = 4000 + Math.random() * 3000;
+			filter.Q.value = 10;
+			
+			const g = ctx.createGain();
+			g.gain.setValueAtTime(0, now);
+			g.gain.linearRampToValueAtTime(0.02 + Math.random() * 0.03, now + 0.005);
+			g.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+			
+			const noise = ctx.createBufferSource();
+			noise.buffer = this.getNoiseBuffer(ctx);
+			noise.connect(filter);
+			filter.connect(g);
+			g.connect(output);
+			noise.start(now);
+			noise.stop(now + 0.2);
+			this.trackNode(filter);
+			this.trackNode(g);
+			
+			window.setTimeout(clinkTrigger, 2000 + Math.random() * 10000);
+		};
+		window.setTimeout(clinkTrigger, 3000);
 	}
 
 	private buildWind(ctx: AudioContext, output: GainNode) {
-		// Bandpass with slow frequency sweep (howling)
-		const bandpass = ctx.createBiquadFilter();
-		bandpass.type = "bandpass";
-		bandpass.frequency.value = 400;
-		bandpass.Q.value = 1.0;
-		bandpass.connect(output);
-		this.trackNode(bandpass);
+		// Howling but subtle wind
+		const filter = ctx.createBiquadFilter();
+		filter.type = "bandpass";
+		filter.frequency.value = 400;
+		filter.Q.value = 0.8;
+		filter.connect(output);
+		this.trackNode(filter);
 
-		const windGain = ctx.createGain();
-		windGain.gain.value = 0.65;
-		windGain.connect(bandpass);
-		this.trackNode(windGain);
+		const gain = ctx.createGain();
+		gain.gain.value = 0.4;
+		gain.connect(filter);
+		this.trackNode(gain);
+		this.createLoopingSource(ctx, gain, true);
 
-		this.createLoopingSource(ctx, windGain);
-
-		// Frequency sweep
-		const sweepOsc = this.createOsc(ctx, "sine", 0.05);
-		const sweepDepth = ctx.createGain();
-		sweepDepth.gain.value = 200;
-		sweepOsc.connect(sweepDepth);
-		sweepDepth.connect(bandpass.frequency);
-		this.trackNode(sweepDepth);
-
-		// Amplitude modulation
-		const ampLfo = this.createOsc(ctx, "sine", 0.07);
-		const ampDepth = ctx.createGain();
-		ampDepth.gain.value = 0.2;
-		ampLfo.connect(ampDepth);
-		ampDepth.connect(windGain.gain);
-		this.trackNode(ampDepth);
+		// Frequency sweep for howling effect
+		const lfo = this.createOsc(ctx, "sine", 0.05);
+		const depth = ctx.createGain();
+		depth.gain.value = 150;
+		lfo.connect(depth);
+		depth.connect(filter.frequency);
+		this.trackNode(depth);
 	}
 
 	private buildBrownNoise(ctx: AudioContext, output: GainNode) {
-		// Brown noise: deeper and softer than white noise
-		const lowpass = ctx.createBiquadFilter();
-		lowpass.type = "lowpass";
-		lowpass.frequency.value = 500;
-		lowpass.connect(output);
-		this.trackNode(lowpass);
-
-		this.createLoopingSource(ctx, lowpass, true); // use brown noise buffer
-
-		// Subtle warmth variation
-		const warmthLfo = this.createOsc(ctx, "sine", 0.03);
-		const warmthDepth = ctx.createGain();
-		warmthDepth.gain.value = 100;
-		warmthLfo.connect(warmthDepth);
-		warmthDepth.connect(lowpass.frequency);
-		this.trackNode(warmthDepth);
+		const filter = ctx.createBiquadFilter();
+		filter.type = "lowpass";
+		filter.frequency.value = 500;
+		filter.connect(output);
+		this.trackNode(filter);
+		this.createLoopingSource(ctx, filter, true);
 	}
 
 	private buildStream(ctx: AudioContext, output: GainNode) {
-		// Higher-frequency babbling
-		const babbleFilter = ctx.createBiquadFilter();
-		babbleFilter.type = "bandpass";
-		babbleFilter.frequency.value = 2500;
-		babbleFilter.Q.value = 0.8;
-		babbleFilter.connect(output);
-		this.trackNode(babbleFilter);
+		const highFilter = ctx.createBiquadFilter();
+		highFilter.type = "bandpass";
+		highFilter.frequency.value = 2500;
+		highFilter.Q.value = 1;
+		highFilter.connect(output);
+		this.trackNode(highFilter);
 
-		const babbleGain = ctx.createGain();
-		babbleGain.gain.value = 0.4;
-		babbleGain.connect(babbleFilter);
-		this.trackNode(babbleGain);
+		const highGain = ctx.createGain();
+		highGain.gain.value = 0.3;
+		highGain.connect(highFilter);
+		this.trackNode(highGain);
+		this.createLoopingSource(ctx, highGain);
 
-		this.createLoopingSource(ctx, babbleGain);
+		const lowFilter = ctx.createBiquadFilter();
+		lowFilter.type = "lowpass";
+		lowFilter.frequency.value = 600;
+		lowFilter.connect(output);
+		this.trackNode(lowFilter);
 
-		// Rapid babble modulation
-		const babbleLfo = this.createOsc(ctx, "sine", 1.5);
-		const babbleDepth = ctx.createGain();
-		babbleDepth.gain.value = 0.2;
-		babbleLfo.connect(babbleDepth);
-		babbleDepth.connect(babbleGain.gain);
-		this.trackNode(babbleDepth);
-
-		// Low water rumble
-		const waterFilter = ctx.createBiquadFilter();
-		waterFilter.type = "lowpass";
-		waterFilter.frequency.value = 600;
-		waterFilter.connect(output);
-		this.trackNode(waterFilter);
-
-		const waterGain = ctx.createGain();
-		waterGain.gain.value = 0.25;
-		waterGain.connect(waterFilter);
-		this.trackNode(waterGain);
-
-		this.createLoopingSource(ctx, waterGain);
-
-		// Slow water flow variation
-		const waterLfo = this.createOsc(ctx, "sine", 0.12);
-		const waterDepth = ctx.createGain();
-		waterDepth.gain.value = 0.1;
-		waterLfo.connect(waterDepth);
-		waterDepth.connect(waterGain.gain);
-		this.trackNode(waterDepth);
+		const lowGain = ctx.createGain();
+		lowGain.gain.value = 0.2;
+		lowGain.connect(lowFilter);
+		this.trackNode(lowGain);
+		this.createLoopingSource(ctx, lowGain, true);
 	}
 
 	private buildSummer(ctx: AudioContext, output: GainNode) {
-		// Soft night breeze (like forest wind but softer)
-		const windFilter = ctx.createBiquadFilter();
-		windFilter.type = "lowpass";
-		windFilter.frequency.value = 250;
-		windFilter.connect(output);
-		this.trackNode(windFilter);
+		// 1. Soft night breeze
+		const breezeFilter = ctx.createBiquadFilter();
+		breezeFilter.type = "lowpass";
+		breezeFilter.frequency.value = 200;
+		breezeFilter.connect(output);
+		this.trackNode(breezeFilter);
 
-		const windGain = ctx.createGain();
-		windGain.gain.value = 0.15;
-		windGain.connect(windFilter);
-		this.trackNode(windGain);
+		const breezeGain = ctx.createGain();
+		breezeGain.gain.value = 0.12;
+		breezeGain.connect(breezeFilter);
+		this.trackNode(breezeGain);
+		this.createLoopingSource(ctx, breezeGain, true);
 
-		this.createLoopingSource(ctx, windGain);
+		// 2. Cricket chirps (rhythmic but natural pulses)
+		const cricketTrigger = () => {
+			if (!this.isPlaying || this.currentSound !== "summer") return;
+			const now = ctx.currentTime;
+			
+			const count = 3 + Math.floor(Math.random() * 3);
+			for (let i = 0; i < count; i++) {
+				const start = now + i * 0.1;
+				const osc = ctx.createOscillator();
+				osc.type = "sine";
+				osc.frequency.value = 4500 + Math.random() * 200;
+				
+				const g = ctx.createGain();
+				g.gain.setValueAtTime(0, start);
+				g.gain.linearRampToValueAtTime(0.04 * (1 - i * 0.2), start + 0.01);
+				g.gain.exponentialRampToValueAtTime(0.001, start + 0.04);
+				
+				osc.connect(g);
+				g.connect(output);
+				osc.start(start);
+				osc.stop(start + 0.1);
+				this.trackNode(g);
+			}
 
-		// Cricket chirps: high frequency pulses
-		const cricketFilter = ctx.createBiquadFilter();
-		cricketFilter.type = "bandpass";
-		cricketFilter.frequency.value = 4500;
-		cricketFilter.Q.value = 10;
-		cricketFilter.connect(output);
-		this.trackNode(cricketFilter);
-
-		const cricketGain = ctx.createGain();
-		cricketGain.gain.value = 0.05;
-		cricketGain.connect(cricketFilter);
-		this.trackNode(cricketGain);
-
-		this.createLoopingSource(ctx, cricketGain);
-
-		// Rapid cricket chirp modulation
-		const cricketLfo = this.createOsc(ctx, "square", 12);
-		const cricketDepth = ctx.createGain();
-		cricketDepth.gain.value = 0.04;
-		cricketLfo.connect(cricketDepth);
-		cricketDepth.connect(cricketGain.gain);
-		this.trackNode(cricketDepth);
-
-		// Slow irregular wave for cricket intensity
-		const waveLfo = this.createOsc(ctx, "sine", 0.1);
-		const waveDepth = ctx.createGain();
-		waveDepth.gain.value = 0.02;
-		waveLfo.connect(waveDepth);
-		waveDepth.connect(cricketGain.gain);
-		this.trackNode(waveDepth);
+			window.setTimeout(cricketTrigger, 2000 + Math.random() * 4000);
+		};
+		window.setTimeout(cricketTrigger, 1000);
 	}
 
 	private buildLibrary(ctx: AudioContext, output: GainNode) {
-		// Foundation: very soft brown noise
-		const brownFilter = ctx.createBiquadFilter();
-		brownFilter.type = "lowpass";
-		brownFilter.frequency.value = 400;
-		brownFilter.connect(output);
-		this.trackNode(brownFilter);
+		// 1. Soft brown noise foundation
+		const foundation = ctx.createGain();
+		foundation.gain.value = 0.1;
+		foundation.connect(output);
+		this.trackNode(foundation);
+		this.createLoopingSource(ctx, foundation, true);
 
-		const brownGain = ctx.createGain();
-		brownGain.gain.value = 0.08;
-		brownGain.connect(brownFilter);
-		this.trackNode(brownGain);
-
-		this.createLoopingSource(ctx, brownGain, true);
-
-		// Paper rustle layer: bandpass filtered noise peaks
-		const paperFilter = ctx.createBiquadFilter();
-		paperFilter.type = "bandpass";
-		paperFilter.frequency.value = 1200;
-		paperFilter.Q.value = 1.0;
-		paperFilter.connect(output);
-		this.trackNode(paperFilter);
-
-		const paperGain = ctx.createGain();
-		paperGain.gain.value = 0.02;
-		paperGain.connect(paperFilter);
-		this.trackNode(paperGain);
-
-		this.createLoopingSource(ctx, paperGain);
-
-		// Paper rustle LFO: slow irregular sweeps
-		const paperLfo = this.createOsc(ctx, "sine", 0.05);
-		const paperDepth = ctx.createGain();
-		paperDepth.gain.value = 0.03;
-		paperLfo.connect(paperDepth);
-		paperDepth.connect(paperGain.gain);
-		this.trackNode(paperDepth);
-
-		// Subtle room tone echo / resonance
-		const roomFilter = ctx.createBiquadFilter();
-		roomFilter.type = "peaking";
-		roomFilter.frequency.value = 150;
-		roomFilter.Q.value = 2;
-		roomFilter.gain.value = 5;
-		roomFilter.connect(output);
-		this.trackNode(roomFilter);
-		this.createLoopingSource(ctx, roomFilter, true);
+		// 2. Distant page rustle
+		const rustleTrigger = () => {
+			if (!this.isPlaying || this.currentSound !== "library") return;
+			const now = ctx.currentTime;
+			
+			const filter = ctx.createBiquadFilter();
+			filter.type = "bandpass";
+			filter.frequency.value = 1000 + Math.random() * 1000;
+			filter.Q.value = 0.5;
+			
+			const g = ctx.createGain();
+			g.gain.setValueAtTime(0, now);
+			g.gain.linearRampToValueAtTime(0.01 + Math.random() * 0.02, now + 0.05);
+			g.gain.linearRampToValueAtTime(0, now + 0.3);
+			
+			const noise = ctx.createBufferSource();
+			noise.buffer = this.getNoiseBuffer(ctx);
+			noise.connect(filter);
+			filter.connect(g);
+			g.connect(output);
+			noise.start(now);
+			noise.stop(now + 0.4);
+			this.trackNode(filter);
+			this.trackNode(g);
+			
+			window.setTimeout(rustleTrigger, 5000 + Math.random() * 15000);
+		};
+		window.setTimeout(rustleTrigger, 4000);
 	}
 
-	private buildConcentration(ctx: AudioContext, output: GainNode) {
-		// Alpha wave binaural beats (approx 10Hz difference)
+	private buildConcentration(ctx: AudioContext, output: GainNode, beatFreq: number, carrierFreq: number) {
 		const merger = ctx.createChannelMerger(2);
 		merger.connect(output);
 		this.trackNode(merger);
 
-		// Left: 200Hz
+		// Left channel: carrier frequency
 		const oscL = ctx.createOscillator();
 		oscL.type = "sine";
-		oscL.frequency.value = 200;
+		oscL.frequency.value = carrierFreq;
+		
 		const gainL = ctx.createGain();
-		gainL.gain.value = 0.5;
+		gainL.gain.value = 0.4;
+		
 		oscL.connect(gainL);
 		gainL.connect(merger, 0, 0);
 		oscL.start();
 		this.oscillators.push(oscL);
 		this.trackNode(gainL);
 
-		// Right: 210Hz (resulting in 10Hz beat)
+		// Right channel: carrier frequency + beat frequency
 		const oscR = ctx.createOscillator();
 		oscR.type = "sine";
-		oscR.frequency.value = 210;
+		oscR.frequency.value = carrierFreq + beatFreq;
+		
 		const gainR = ctx.createGain();
-		gainR.gain.value = 0.5;
+		gainR.gain.value = 0.4;
+		
 		oscR.connect(gainR);
 		gainR.connect(merger, 0, 1);
 		oscR.start();
 		this.oscillators.push(oscR);
 		this.trackNode(gainR);
 
-		// Deep sub-hum for grounding
-		const subFilter = ctx.createBiquadFilter();
-		subFilter.type = "lowpass";
-		subFilter.frequency.value = 60;
-		subFilter.connect(output);
-		this.trackNode(subFilter);
-		this.createLoopingSource(ctx, subFilter, true);
+		// Soft brown noise masking (essential for research-grade focus audio)
+		// This makes the binaural effect less fatiguing and more effective.
+		const noiseFilter = ctx.createBiquadFilter();
+		noiseFilter.type = "lowpass";
+		noiseFilter.frequency.value = 400;
+		noiseFilter.connect(output);
+		this.trackNode(noiseFilter);
+
+		const noiseGain = ctx.createGain();
+		noiseGain.gain.value = 0.15;
+		noiseGain.connect(noiseFilter);
+		this.trackNode(noiseGain);
+		this.createLoopingSource(ctx, noiseGain, true);
 	}
 
 	private buildTrain(ctx: AudioContext, output: GainNode) {
-		// Constant deep rumble
 		const rumbleFilter = ctx.createBiquadFilter();
 		rumbleFilter.type = "lowpass";
-		rumbleFilter.frequency.value = 150;
+		rumbleFilter.frequency.value = 120;
 		rumbleFilter.connect(output);
 		this.trackNode(rumbleFilter);
 		this.createLoopingSource(ctx, rumbleFilter, true);
 
-		// Periodic tracks clack-clack (rhythmic pulses)
-		const tracksGain = ctx.createGain();
-		tracksGain.gain.value = 0.05;
-		tracksGain.connect(output);
-		this.trackNode(tracksGain);
-
-		// Clack modulation: double pulse every ~2 seconds
-		const clackSource = this.createLoopingSource(ctx, tracksGain);
-		const clackFilter = ctx.createBiquadFilter();
-		clackFilter.type = "bandpass";
-		clackFilter.frequency.value = 800;
-		clackSource.disconnect();
-		clackSource.connect(clackFilter);
-		clackFilter.connect(tracksGain);
-		this.trackNode(clackFilter);
-
-		// Slow irregular wave for track sound
-		const clackLfo = this.createOsc(ctx, "sine", 0.5); // 0.5Hz = 2s
-		const clackDepth = ctx.createGain();
-		clackDepth.gain.value = 0.04;
-		clackLfo.connect(clackDepth);
-		clackDepth.connect(tracksGain.gain);
-		this.trackNode(clackDepth);
+		const triggerClack = () => {
+			if (!this.isPlaying || this.currentSound !== "train") return;
+			const now = ctx.currentTime;
+			const clacks = [0, 0.15];
+			for (const offset of clacks) {
+				const start = now + offset;
+				const filter = ctx.createBiquadFilter();
+				filter.type = "bandpass";
+				filter.frequency.value = 700 + Math.random() * 100;
+				filter.Q.value = 2;
+				const g = ctx.createGain();
+				g.gain.setValueAtTime(0, start);
+				g.gain.linearRampToValueAtTime(offset === 0 ? 0.05 : 0.07, start + 0.01);
+				g.gain.exponentialRampToValueAtTime(0.001, start + 0.15);
+				const noise = ctx.createBufferSource();
+				noise.buffer = this.getNoiseBuffer(ctx);
+				noise.connect(filter);
+				filter.connect(g);
+				g.connect(output);
+				noise.start(start);
+				noise.stop(start + 0.2);
+				this.trackNode(filter);
+				this.trackNode(g);
+			}
+			window.setTimeout(triggerClack, 1500 + Math.random() * 500);
+		};
+		window.setTimeout(triggerClack, 1000);
 	}
 
 	private buildStorm(ctx: AudioContext, output: GainNode) {
-		// Heavy rain foundation
 		this.buildRain(ctx, output);
 		
-		// Add lower frequency layer
-		const heavyFilter = ctx.createBiquadFilter();
-		heavyFilter.type = "lowpass";
-		heavyFilter.frequency.value = 400;
-		heavyFilter.connect(output);
-		this.trackNode(heavyFilter);
-		this.createLoopingSource(ctx, heavyFilter, true);
-
-		// Thunder: occasional very low frequency noise bursts
 		const thunderGain = ctx.createGain();
 		thunderGain.gain.value = 0;
 		thunderGain.connect(output);
@@ -807,60 +810,51 @@ export class AmbientManager {
 
 		const thunderFilter = ctx.createBiquadFilter();
 		thunderFilter.type = "lowpass";
-		thunderFilter.frequency.value = 80;
+		thunderFilter.frequency.value = 60;
 		thunderFilter.connect(thunderGain);
 		this.trackNode(thunderFilter);
-
 		this.createLoopingSource(ctx, thunderFilter, true);
 
-		// Random thunder trigger
 		const triggerThunder = () => {
 			if (!this.isPlaying || this.currentSound !== "storm") return;
 			const now = ctx.currentTime;
 			thunderGain.gain.cancelScheduledValues(now);
 			thunderGain.gain.setValueAtTime(0, now);
 			thunderGain.gain.linearRampToValueAtTime(0.4, now + 2);
-			thunderGain.gain.linearRampToValueAtTime(0, now + 7);
-			
+			thunderGain.gain.linearRampToValueAtTime(0, now + 8);
 			window.setTimeout(triggerThunder, 15000 + Math.random() * 20000);
 		};
 		window.setTimeout(triggerThunder, 5000);
 	}
 
 	private buildZen(ctx: AudioContext, output: GainNode) {
-		// Soft air background
 		const airFilter = ctx.createBiquadFilter();
 		airFilter.type = "lowpass";
-		airFilter.frequency.value = 1000;
+		airFilter.frequency.value = 800;
 		airFilter.connect(output);
 		this.trackNode(airFilter);
 
 		const airGain = ctx.createGain();
-		airGain.gain.value = 0.05;
+		airGain.gain.value = 0.04;
 		airGain.connect(airFilter);
 		this.trackNode(airGain);
-		this.createLoopingSource(ctx, airGain);
+		this.createLoopingSource(ctx, airGain, true);
 
-		// Singing bowl: Pure sine harmonic
 		const triggerBowl = () => {
 			if (!this.isPlaying || this.currentSound !== "zen") return;
 			const now = ctx.currentTime;
-			
 			const osc = ctx.createOscillator();
 			osc.type = "sine";
 			osc.frequency.value = 164.81; // E3
-			
-			const bowlGain = ctx.createGain();
-			bowlGain.gain.setValueAtTime(0, now);
-			bowlGain.gain.linearRampToValueAtTime(0.15, now + 0.1);
-			bowlGain.gain.exponentialRampToValueAtTime(0.001, now + 10);
-			
-			osc.connect(bowlGain);
-			bowlGain.connect(output);
-			osc.start();
-			osc.stop(now + 10);
-			
-			window.setTimeout(triggerBowl, 12000 + Math.random() * 5000);
+			const g = ctx.createGain();
+			g.gain.setValueAtTime(0, now);
+			g.gain.linearRampToValueAtTime(0.12, now + 0.1);
+			g.gain.exponentialRampToValueAtTime(0.001, now + 12);
+			osc.connect(g);
+			g.connect(output);
+			osc.start(now);
+			osc.stop(now + 12);
+			window.setTimeout(triggerBowl, 15000 + Math.random() * 10000);
 		};
 		window.setTimeout(triggerBowl, 1000);
 	}

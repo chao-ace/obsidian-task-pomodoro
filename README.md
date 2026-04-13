@@ -23,6 +23,8 @@ Existing pomodoro plugins (like PomoBar) are **global timers** — they track ti
 - **Reading View + Live Preview** — Works in both editing and viewing modes
 - **Status bar integration** — Shows active timer with state-aware styling
 - **Sound notifications** — Built-in chimes or custom audio files
+- **Ambient Soundscapes** — High-fidelity, synthesized background sounds (Rain, Fire, Ocean, Café, etc.)
+- **Scientific Focus Tracks** — Alpha, Beta, and Gamma brainwave beats with brown noise layering for deep work
 - **Long break support** — Automatic long breaks after N pomodoros
 - **Auto-progress mode** — Optionally chain work → break → work automatically
 
@@ -64,6 +66,7 @@ When you check off a task (`- [x]`), the timer auto-finishes and records your ti
 | `重置光标所在任务的番茄钟` | Reset timer for task under cursor |
 | `重置整个番茄钟会话` | Reset all timers |
 | `切换音效开关` | Toggle sound on/off |
+| `切换环境音效开关` | Toggle ambient sound on/off |
 | `切换状态栏显示` | Toggle status bar visibility |
 
 ## Settings
@@ -80,6 +83,28 @@ When you check off a task (`- [x]`), the timer auto-finishes and records your ti
 | Sound | On + Chime | Built-in sounds or custom audio |
 | Volume | 50% | Notification volume |
 | Status bar | On | Show active timer in status bar |
+| Ambient Sound | Off | Background soundscapes during work |
+| Ambient Volume | 30% | Volume for background sounds |
+| Auto-play Ambient | On | Start ambient sound automatically with timer |
+
+## Ambient Soundscapes
+
+Task Pomodoro includes a built-in, no-asset-required ambient sound engine. All sounds are synthesized locally using the Web Audio API — **no external files, no network requests, zero footprint.**
+
+### 🌿 Classic Environments
+- **Rain**: Layered pitter-patter, wash, and roof rumble.
+- **Fireplace**: Realistic wood popping with irregular crackle synthesis.
+- **Ocean**: Asymmetrical wave cycles with foam-hiss peaks.
+- **Café**: Mid-range murmur with occasional distant dish clinks.
+- **Forest**: Wind-blown leaves with rhythmic bird-call sequences.
+
+### 🧠 Scientific Focus Tracks (Brainwave Entrainment)
+Designed based on neuroscientific research, these tracks use **Binaural Beats** layered with soft **Brown Noise** to reduce fatigue and encourage specific brain states:
+- **Alpha (10Hz)**: 心流模式 (Flow State) — For calm focus, reading, and creativity.
+- **Beta (20Hz)**: 深度专注 (Deep Work) — For high-intensity coding, math, and analysis.
+- **Gamma (40Hz)**: 极速处理 (Peak Performance) — For information processing and memory.
+
+*Note: Head-to-head research suggests binaural beats are most effective when listened to with headphones.*
 
 ## Installation
 
