@@ -93,7 +93,7 @@ export class TimerService {
 				} else {
 					this.emit("tick", key);
 				}
-			} else if (state.state === "break") {
+			} else if (state.state === "break" && state.startedAt !== null) {
 				state.remainingSeconds--;
 
 				if (state.remainingSeconds <= 0) {
@@ -126,7 +126,13 @@ export class TimerService {
 			? this.settings.longBreakMinutes * 60
 			: this.settings.shortBreakMinutes * 60;
 		state.remainingSeconds = state.totalBreakSeconds;
-		state.startedAt = Date.now();
+		
+		if (this.settings.autoStartBreak) {
+			state.startedAt = Date.now();
+			this.ensureTickLoop();
+		} else {
+			state.startedAt = null;
+		}
 
 		if (isLongBreak) {
 			this.workIntervalCount = 0;
@@ -141,7 +147,8 @@ export class TimerService {
 
 		const breakType = isLongBreak ? "长休息" : "短休息";
 		const breakDuration = isLongBreak ? this.settings.longBreakMinutes : this.settings.shortBreakMinutes;
-		new Notice(`🍅 番茄钟完成！${breakType} ${breakDuration} 分钟`, 5000);
+		const suffix = this.settings.autoStartBreak ? "" : " (点击开始休息)";
+		new Notice(`🍅 番茄钟完成！${breakType} ${breakDuration} 分钟${suffix}`, 5000);
 		this.playCompletionSound();
 	}
 
@@ -271,9 +278,16 @@ export class TimerService {
 				this.ensureTickLoop();
 				break;
 			case "break":
-				state.state = "idle";
-				state.remainingSeconds = state.totalWorkSeconds;
-				state.startedAt = null;
+				if (state.startedAt === null) {
+					// Start the break
+					state.startedAt = Date.now();
+					this.ensureTickLoop();
+				} else {
+					// Skip/Stop the break
+					state.state = "idle";
+					state.remainingSeconds = state.totalWorkSeconds;
+					state.startedAt = null;
+				}
 				break;
 		}
 
