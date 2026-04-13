@@ -537,79 +537,85 @@ export class AmbientManager {
 	}
 
 	private buildCafe(ctx: AudioContext, output: GainNode) {
-		// 1. Foundation: Room tone (low hum of AC/machines)
+		// 1. Foundation: Room tone (warm low-mid hum)
 		const roomFilter = ctx.createBiquadFilter();
 		roomFilter.type = "lowpass";
-		roomFilter.frequency.value = 300;
+		roomFilter.frequency.value = 400;
 		roomFilter.connect(output);
 		this.trackNode(roomFilter);
 
 		const roomGain = ctx.createGain();
-		roomGain.gain.value = 0.25;
+		roomGain.gain.value = 0.2;
 		roomGain.connect(roomFilter);
 		this.trackNode(roomGain);
 		this.createLoopingSource(ctx, roomGain, true);
 
-		// 2. The 'Murmur' (simulating distant voices)
-		// We use multiple bandpass layers with different LFOs to create a shifting texture
-		const freqs = [600, 900, 1300];
-		freqs.forEach((f, i) => {
-			const b = ctx.createBiquadFilter();
-			b.type = "bandpass";
-			b.frequency.value = f;
-			b.Q.value = 2.0; // tighter Q for more 'vocal' quality
-			b.connect(output);
-			this.trackNode(b);
+		// 2. The 'Babble' - Multi-voice synthesis
+		const createVoice = (baseFreq: number, pan: number) => {
+			const voiceFilter = ctx.createBiquadFilter();
+			voiceFilter.type = "bandpass";
+			voiceFilter.frequency.value = baseFreq;
+			voiceFilter.Q.value = 4.0;
+			
+			const panner = ctx.createStereoPanner();
+			panner.pan.value = pan;
+			panner.connect(output);
+			voiceFilter.connect(panner);
+			this.trackNode(voiceFilter);
+			this.trackNode(panner);
 
-			const g = ctx.createGain();
-			g.gain.value = 0.15;
-			g.connect(b);
-			this.trackNode(g);
-			this.createLoopingSource(ctx, g, true);
+			const voiceGain = ctx.createGain();
+			voiceGain.gain.value = 0;
+			voiceGain.connect(voiceFilter);
+			this.trackNode(voiceGain);
 
-			// Individual voice modulation
-			const lfo = this.createOsc(ctx, "sine", 0.2 + i * 0.15);
-			const depth = ctx.createGain();
-			depth.gain.value = 0.08;
-			lfo.connect(depth);
-			depth.connect(g.gain);
-			this.trackNode(depth);
-		});
+			const source = this.createLoopingSource(ctx, voiceGain, true);
 
-		// 3. Sharp Clinks (cups, spoons, plates)
+			// Rhythm generator (simulates human syllable timing)
+			const triggerSyllable = () => {
+				if (!this.isPlaying || this.currentSound !== "cafe") return;
+				const duration = 100 + Math.random() * 300;
+				const now = ctx.currentTime;
+				voiceGain.gain.setTargetAtTime(0.05 + Math.random() * 0.1, now, 0.05);
+				voiceGain.gain.setTargetAtTime(0, now + duration / 1000, 0.05);
+				window.setTimeout(triggerSyllable, duration + (Math.random() * 200));
+			};
+			triggerSyllable();
+		};
+
+		// Layer 4 'babblers' at different frequency bands and pans
+		createVoice(500, -0.6);  // Male-ish lows
+		createVoice(800, 0.4);   // Mid chatter
+		createVoice(1200, -0.2); // Faint high chatter
+		createVoice(1600, 0.7);  // Distant bright chatter
+
+		// 3. Realistic Clinks (Double/Triple sequences)
 		const clinkTrigger = () => {
 			if (!this.isPlaying || this.currentSound !== "cafe") return;
 			const now = ctx.currentTime;
+			const count = Math.random() > 0.8 ? 3 : (Math.random() > 0.6 ? 2 : 1);
 			
-			// Occasionally do a 'double clink'
-			const repeats = Math.random() > 0.7 ? 2 : 1;
-			for (let i = 0; i < repeats; i++) {
-				const start = now + i * 0.2;
+			for (let i = 0; i < count; i++) {
+				const start = now + i * (0.1 + Math.random() * 0.2);
 				const osc = ctx.createOscillator();
 				osc.type = "sine";
-				osc.frequency.value = 3000 + Math.random() * 4000;
-				
-				const filter = ctx.createBiquadFilter();
-				filter.type = "highpass";
-				filter.frequency.value = 2000;
+				osc.frequency.value = 2500 + Math.random() * 3000;
 				
 				const g = ctx.createGain();
 				g.gain.setValueAtTime(0, start);
-				g.gain.linearRampToValueAtTime(0.03 + Math.random() * 0.05, start + 0.002);
-				g.gain.exponentialRampToValueAtTime(0.001, start + 0.15);
+				g.gain.linearRampToValueAtTime(0.04, start + 0.002);
+				g.gain.exponentialRampToValueAtTime(0.001, start + 0.1);
 				
-				osc.connect(filter);
-				filter.connect(g);
+				osc.connect(g);
 				g.connect(output);
 				osc.start(start);
 				osc.stop(start + 0.2);
-				this.trackNode(filter);
 				this.trackNode(g);
 			}
 
-			window.setTimeout(clinkTrigger, 3000 + Math.random() * 12000);
+			window.setTimeout(clinkTrigger, 5000 + Math.random() * 10000);
 		};
-		window.setTimeout(clinkTrigger, 2000);
+		window.setTimeout(clinkTrigger, 3000);
 	}
 
 	private buildWind(ctx: AudioContext, output: GainNode) {
