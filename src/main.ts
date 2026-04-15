@@ -9,6 +9,7 @@ import { TaskPomodoroSettingTab } from "./settings-tab";
 import { SoundManager } from "./sound-manager";
 import { AmbientManager } from "./ambient-manager";
 import { setLocale, t } from "./i18n";
+import { isWeeklyNote, updateStats } from "./stats";
 
 export default class TaskPomodoroPlugin extends Plugin {
 	settings!: TaskPomodoroSettings;
@@ -145,6 +146,12 @@ export default class TaskPomodoroPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: "update-pomo-stats",
+			name: t("CMD_STATS"),
+			callback: () => this.updatePomoStatsForActiveFile(),
+		});
+
 		console.log("Task Pomodoro plugin loaded");
 	}
 
@@ -277,6 +284,11 @@ export default class TaskPomodoroPlugin extends Plugin {
 		} catch {
 			// Silently ignore persistence errors
 		}
+
+		// Auto-update stats if this is a weekly note
+		if (isWeeklyNote(filePath.split("/").pop() ?? "")) {
+			updateStats(this.app, filePath, this.settings.pomodoroEmoji);
+		}
 	}
 
 	/** Persist final time tracking when a task is completed */
@@ -311,6 +323,11 @@ export default class TaskPomodoroPlugin extends Plugin {
 			}
 		} catch {
 			// Silently ignore persistence errors
+		}
+
+		// Auto-update stats if this is a weekly note
+		if (isWeeklyNote(filePath.split("/").pop() ?? "")) {
+			updateStats(this.app, filePath, this.settings.pomodoroEmoji);
 		}
 	}
 
@@ -374,5 +391,11 @@ export default class TaskPomodoroPlugin extends Plugin {
 				this.statusBarItem.style.display = "none";
 			}
 		}, 1000);
+	}
+
+	private async updatePomoStatsForActiveFile() {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view || !view.file) return;
+		await updateStats(this.app, view.file.path, this.settings.pomodoroEmoji);
 	}
 }

@@ -93,6 +93,9 @@ interface TranslationStrings {
 
 	// Commands — ambient
 	CMD_TOGGLE_AMBIENT: string;
+
+	// Commands — stats
+	CMD_STATS: string;
 }
 
 const en: TranslationStrings = {
@@ -169,6 +172,8 @@ const en: TranslationStrings = {
 	AMBIENT_PLAY_ON_BREAK_DESC: "Keep ambient sound playing during break sessions",
 
 	CMD_TOGGLE_AMBIENT: "Toggle ambient sound on/off",
+
+	CMD_STATS: "Update pomodoro statistics",
 };
 
 const zhCN: TranslationStrings = {
@@ -245,6 +250,8 @@ const zhCN: TranslationStrings = {
 	AMBIENT_PLAY_ON_BREAK_DESC: "在休息时段也保持环境音播放",
 
 	CMD_TOGGLE_AMBIENT: "切换环境音效开关",
+
+	CMD_STATS: "更新番茄统计",
 };
 
 const TRANSLATIONS: Record<Locale, TranslationStrings> = {
