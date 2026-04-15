@@ -1,8 +1,6 @@
 import { App, TFile, MarkdownView } from "obsidian";
 
-const POMODORO_EMOJI = "\u{1F345}";
-const STATS_START = "<!-- pomodoro-stats -->";
-const STATS_END = "<!-- /pomodoro-stats -->";
+const STATS_HEADING = "## 📊 番茄统计";
 
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 
@@ -142,8 +140,7 @@ export function generateStatsContent(content: string, filename: string, emoji: s
 
 	// Build markdown
 	const lines: string[] = [
-		STATS_START,
-		"## 📊 番茄统计",
+		STATS_HEADING,
 		"",
 		`| ${headerCells.join(" | ")} |`,
 		`| ${separatorCells.join(" | ")} |`,
@@ -151,7 +148,6 @@ export function generateStatsContent(content: string, filename: string, emoji: s
 		`| ${hoursCells.join(" | ")} |`,
 		"",
 		`**本周: ${formatPomodoros(totalPomos, emoji)} · ${formatHours(totalHours)}**`,
-		STATS_END,
 	];
 
 	return lines.join("\n");
@@ -169,17 +165,15 @@ export async function updateStats(app: App, filePath: string, emoji: string): Pr
 
 	let newContent: string;
 
-	// Replace existing stats block or append
-	const startIdx = content.indexOf(STATS_START);
-	const endIdx = content.indexOf(STATS_END);
+	// Find existing stats section by heading
+	const headingIdx = content.indexOf(STATS_HEADING);
 
-	if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-		// Replace existing block
-		newContent = content.substring(0, startIdx) + statsBlock + content.substring(endIdx + STATS_END.length);
+	if (headingIdx !== -1) {
+		// Replace existing stats: from heading to end of file
+		newContent = content.substring(0, headingIdx).trimEnd() + "\n\n" + statsBlock + "\n";
 	} else {
 		// Append to end
-		const trimmed = content.trimEnd();
-		newContent = trimmed + "\n\n" + statsBlock + "\n";
+		newContent = content.trimEnd() + "\n\n" + statsBlock + "\n";
 	}
 
 	// Try to update via editor if the file is active
